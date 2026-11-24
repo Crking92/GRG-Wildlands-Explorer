@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.8
+## Alpha 0.8.1
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -102,3 +102,8 @@ Implementation sequence: (1) common data/status/provenance schema; (2) local pro
 - JSON snapshot records soil overlay source and display status; quantitative soil_map remains not_implemented. No soil acreage, percentages, properties or laboratory results are invented. Source registry records unknown vintage. No imagery is exported.
 - Next: test actual tiles in browser at known Hays County sites; query SSURGO polygons by study boundary, verify complete response and metadata, calculate clipped composition with coverage/overlap checks, then add documented map-unit/component/horizon attributes. Preserve soil data in the existing snapshot schema. Do not conflate mapped estimates and field soil samples.
 - JavaScript syntax and interface ID checks passed; live WMS rendering and coverage not independently tested.
+
+## Soil map visibility patch (0.8.1)
+- Persistent Show USDA soils and Soil settings controls; enabling soils zooms to at least 15. Default opacity 80%, independent layer ordering and retry control.
+- Default source is the official [USDA NRCS cg_soils MUPolygon ArcGIS service](https://apps.geo.fpac.usda.gov/nrcs-geodata/rest/services/soils/cg_soils/MapServer/0), rendered by transparent map export requests. Original SDA WMS is explicitly selectable; no automatic source substitution. Snapshot tracks selected source and display status. Service-level metadata reports FY2026 (2026-05-08) but layer description still says FY2015; vintage conflict remains unresolved. No soil calculations or invented attributes.
+- Source metadata verified, but actual image responses and deployed browser rendering remain unverified. Blank tiles do not establish absence of mapped soils. Syntax and interface ID checks passed.
