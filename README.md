@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.5
+## Alpha 0.5.1
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -48,3 +48,7 @@ External services may change, be unavailable or impose usage restrictions. Verif
 - No made-up measurements, arbitrary scores, or duplicate research without reason.
 - Do not infer species-level presence or native cover from mapped habitat.
 - Build and test incrementally.
+
+## Address-search patch (0.5.1)
+- Numbered street searches first query [Hays County GIS address points, January 2023](https://services6.arcgis.com/XnTA1N5QxtOFa9o8/ArcGIS/rest/services/CODS_Public_Map/FeatureServer/0) through the public City of Dripping Springs service, then try Photon with exact house-number and normalized street matching. Named places continue to use Photon. Results identify their source; no match is preferable to a misleading fuzzy address. Coverage outside Hays County and newer development remains limited. Submitted queries go to the providers; do not submit confidential locations.
+- Clear/reset and manual drawing now reset the parcel status text. User reports named place search, aerial imagery and boundary measurement working; exact-address patch still requires live testing. JavaScript syntax and four synthetic address matching checks passed; no private address tested remotely.
