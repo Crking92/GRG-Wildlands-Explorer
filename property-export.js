@@ -140,8 +140,26 @@ function build(input){
  if(Math.abs(records.reduce((s,x)=>s+x.area_acres*4046.8564224,0)-covered)>tol)throw Error('Watershed totals inconsistent');
  return {...section(!records.length?'no_data':gap>tol?'partial_coverage':'estimated',label,records,'Regional hydrologic units; not site-specific drainage boundaries.'),...base,retrieved_at:d.retrieved??null,mapped_coverage_percent:covered/total*100,area_outside_returned_units_acres:gap/4046.8564224};
  }
+ function profileSection(){
+ const p=input.terrain?.profile;if(!p)return null;
+ const coord=v=>Array.isArray(v)&&v.length===2&&v.every(Number.isFinite)&&Math.abs(v[0])<=180&&Math.abs(v[1])<85;
+ if(p.property_id!==id||!p.profile_id||!statuses.includes(p.status)||!Array.isArray(p.endpoints)||p.endpoints.length>2||!p.endpoints.every(coord))throw Error('Invalid profile association or endpoints');
+ const d=p.data,base={profile_id:p.profile_id,property_id:id,status:p.status,detail:p.detail??null,endpoints:copy(p.endpoints),source_id:'usgs_3dep_dem',source_resolution_m:null,acquisition_date:null,vertical_datum:null,evidence_kind:'mapped_estimate',verification_status:'not_field_verified',scope:'user-defined transect; may extend beyond property'};
+ if(!d)return {...base,data:null};
+ if(d.source_id!==base.source_id||d.status!==p.status||!['estimated','partial_coverage','no_data'].includes(d.status)||p.endpoints.length!==2||!Array.isArray(d.samples)||d.samples.length<2||d.samples.length>401||d.sample_count!==d.samples.length||!Number.isFinite(d.length_m)||d.length_m<1||d.length_m>5000||![1,2,5,10,20,30].includes(d.requested_grid_m)||d.geometry?.type!=='LineString'||d.geometry.coordinates?.length!==d.samples.length)throw Error('Invalid profile grid or samples');
+ const same=(a,b)=>coord(a)&&coord(b)&&a.every((x,i)=>Math.abs(x-b[i])<1e-9);
+ const interval=d.length_m/(d.samples.length-1);if(Math.abs(finite(d.sample_interval_m)-interval)>1e-7||!same(p.endpoints[0],d.samples[0].coordinates)||!same(p.endpoints[1],d.samples.at(-1).coordinates))throw Error('Invalid profile interval or endpoints');
+ for(const [i,x] of d.samples.entries()){if(!coord(x.coordinates)||!same(x.coordinates,d.geometry.coordinates[i])||Math.abs(finite(x.distance_m)-i*interval)>1e-6||x.elevation_m!==null&&(!Number.isFinite(x.elevation_m)||x.elevation_m< -500||x.elevation_m>9000))throw Error('Invalid profile sample')}
+ const v=d.samples.filter(x=>x.elevation_m!==null),n=v.length,missing=d.samples.length-n,expected=!n?'no_data':missing?'partial_coverage':'estimated';
+ if(d.status!==expected||d.valid_sample_count!==n||d.missing_sample_count!==missing||Math.abs(finite(d.valid_sample_percent)-100*n/d.samples.length)>1e-7)throw Error('Profile sample coverage inconsistent');
+ const lo=n?Math.min(...v.map(x=>x.elevation_m)):null,hi=n?Math.max(...v.map(x=>x.elevation_m)):null;
+ if(d.valid_only_min_m!==lo||d.valid_only_max_m!==hi)throw Error('Invalid profile sample extrema');
+ if(expected==='estimated'){if(d.min_m!==lo||d.max_m!==hi||Math.abs(finite(d.relief_m)-(hi-lo))>1e-7||![d.lowest_sample,d.highest_sample].every((p,i)=>p&&p.elevation_m===[lo,hi][i]&&v.some(x=>x.distance_m===p.distance_m&&same(x.coordinates,p.coordinates)&&x.elevation_m===p.elevation_m)))throw Error('Profile extrema inconsistent')}
+ else if([d.min_m,d.max_m,d.relief_m,d.lowest_sample,d.highest_sample].some(x=>x!==null))throw Error('Incomplete profile has full-line extrema');
+ return {...base,data:copy(d)};
+ }
  function terrainSection(){
- const r=input.terrain,d=r?.data,base={source_id:'usgs_3dep_dem',retrieved_at:null,source_resolution_m:null,acquisition_date:null,vertical_datum:null,requested_grid_m:null,coverage_percent:null,study_area_acres:acres,min_m:null,max_m:null,mean_m:null,relief_m:null,valid_area_acres:null,missing_area_acres:null,verification_status:'not_field_verified',evidence_kind:'mapped_estimate',slope_statistics_status:r?.status||'not_analyzed',aspect_statistics_status:r?.status||'not_analyzed',gradients:null};
+ const r=input.terrain,d=r?.data,base={source_id:'usgs_3dep_dem',retrieved_at:null,source_resolution_m:null,acquisition_date:null,vertical_datum:null,requested_grid_m:null,coverage_percent:null,study_area_acres:acres,min_m:null,max_m:null,mean_m:null,relief_m:null,valid_area_acres:null,missing_area_acres:null,verification_status:'not_field_verified',evidence_kind:'mapped_estimate',slope_statistics_status:r?.status||'not_analyzed',aspect_statistics_status:r?.status||'not_analyzed',gradients:null,elevation_profile:profileSection()};
  if(!d)return {...section(r?.status||'not_analyzed','Property elevation',[],r?.detail??null),...base};
  const total=finite(d.study_area_acres),valid=finite(d.valid_area_acres),missing=finite(d.missing_area_acres),cov=finite(d.coverage_percent);
  if(d.source_id!==base.source_id||r.status!==d.status||!['estimated','partial_coverage','no_data'].includes(d.status)||total<=0||Math.abs(total-acres)>Math.max(.01,acres*.01)||valid<0||missing<0||Math.abs(valid+missing-total)>Math.max(.00001,total*1e-7)||Math.abs(cov-100*valid/total)>.0001||![1,2,5,10,20,30].includes(d.requested_grid_m))throw Error('Invalid elevation coverage or source');
