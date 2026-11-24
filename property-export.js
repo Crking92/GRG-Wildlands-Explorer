@@ -171,7 +171,20 @@ function build(input){
  for(const rows of [d.accumulation_classes,d.routing_classes]){if(!Array.isArray(rows)||rows.length!==5||new Set(rows.map(x=>x.label)).size!==5||rows.some(x=>!x.label)||Math.abs(rows.reduce((s,x)=>s+checkRow(x),0)-v)>tol)throw Error('Drainage classes inconsistent')}
  checkRow(d.edge_or_nodata_influenced_area);
  if(v){const peak=finite(d.maximum_local_contributing_area_acres);if(peak<=0||peak>ca+tol||!Number.isInteger(d.maximum_cell_index)||d.maximum_cell_index<0||d.maximum_cell_index>=n)throw Error('Invalid local contributing area maximum')}else if(d.maximum_local_contributing_area_acres!==null||d.maximum_cell_index!==null)throw Error('No-data drainage has maximum');
- return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),experimental:true,cell_grid_export:'Separate local CSV; snapshot includes model summary and grid metadata only'};
+ const dep=d.depressions??null;
+ if(dep){
+  if(!['estimated','unavailable'].includes(dep.status)||!Array.isArray(dep.depth_classes))throw Error('Invalid depression model status');
+  const fields=['site_depression_area_acres','site_fill_volume_m3','maximum_site_depth_m'];
+  if(dep.status==='unavailable'){if(fields.some(k=>dep[k]!==null)||dep.depth_classes.length)throw Error('Unavailable depression model has values')}
+  else {
+   if(d.status!=='estimated'||cn!==n||dep.evidence_kind!=='modeled_terrain_interpretation'||dep.verification_status!=='not_field_verified'||!dep.method||!dep.limitations)throw Error('Incomplete context or provenance for depression model');
+   const [a,vol,depth]=fields.map(k=>finite(dep[k]));
+   if(a<0||a>total+tol||vol<0||depth<0||depth>9500||vol>a*4046.8564224*depth+Math.max(.001,vol*1e-8)||((a===0)!==(depth===0))||((a===0)!==(vol===0)))throw Error('Invalid depression area, depth or volume');
+   const labels=['>0–<0.15 m','0.15–<0.3 m','0.3–<0.6 m','0.6–<1 m','1 m+'];
+   if(dep.depth_classes.length!==labels.length||dep.depth_classes.some((x,i)=>x.label!==labels[i]||typeof x.color!=='string'||finite(x.area_acres)<0||Math.abs(finite(x.percent_of_study_area)-100*x.area_acres/total)>.0001)||Math.abs(dep.depth_classes.reduce((sum,x)=>sum+x.area_acres,0)-a)>tol)throw Error('Depression classes inconsistent');
+  }
+ }
+ return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,experimental:true,cell_grid_export:'Separate local CSV; snapshot includes model summary and grid metadata only'};
  }
  function terrainCatalogSection(){
  const r=input.terrain?.catalog,d=r?.data,base={status:r?.status||'not_analyzed',detail:r?.detail??null,source_url:'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',verification_status:'catalog_only_not_pixel_provenance',scope:'study_bounding_box',records:[],query_bbox_wgs84:null,retrieved_at:null,limitations:'Candidate raster records only; exact analytical grid sources, native DEM resolution and vertical datum remain unverified.'};
