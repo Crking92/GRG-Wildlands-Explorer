@@ -169,6 +169,9 @@
         },
         "point_estimates": {
           "$ref": "#/$defs/section"
+        },
+        "impervious_surfaces": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
