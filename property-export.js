@@ -158,8 +158,8 @@ function build(input){
  else if([d.min_m,d.max_m,d.relief_m,d.lowest_sample,d.highest_sample].some(x=>x!==null))throw Error('Incomplete profile has full-line extrema');
  return {...base,data:copy(d)};
  }
- function drainageSection(){
- const r=input.terrain?.drainage,d=r?.data,base={source_id:'usgs_3dep_dem',evidence_kind:'modeled_terrain_interpretation',verification_status:'not_field_verified',source_resolution_m:null,acquisition_date:null,vertical_datum:null,maximum_local_contributing_area_acres:null,grid:null,coverage_percent:null,limitations:'Local unconditioned terrain screening, not a hydraulic model or a watershed delineation. Outside-grid contributions unknown.'};
+ function drainageSection(r=input.terrain?.drainage,isAlternate=false){
+ const d=r?.data,base={source_id:'usgs_3dep_dem',evidence_kind:'modeled_terrain_interpretation',verification_status:'not_field_verified',source_resolution_m:null,acquisition_date:null,vertical_datum:null,maximum_local_contributing_area_acres:null,grid:null,coverage_percent:null,limitations:'Local unconditioned terrain screening, not a hydraulic model or a watershed delineation. Outside-grid contributions unknown.'};
  if(!d)return {...section(r?.status||'not_analyzed','Potential drainage',[],r?.detail??null),...base};
  const total=finite(d.study_area_acres),v=finite(d.valid_area_acres),m=finite(d.missing_area_acres),tol=Math.max(.00001,total*1e-7),g=d.grid;
  if(d.source_id!==base.source_id||d.evidence_kind!==base.evidence_kind||r.status!==d.status||!['estimated','partial_coverage','no_data'].includes(d.status)||total<=0||Math.abs(total-acres)>Math.max(.01,acres*.01)||v<0||m<0||Math.abs(v+m-total)>tol||Math.abs(finite(d.coverage_percent)-100*v/total)>.0001)throw Error('Invalid drainage coverage');
@@ -197,7 +197,25 @@ function build(input){
    if(dep.depth_classes.length!==labels.length||dep.depth_classes.some((x,i)=>x.label!==labels[i]||typeof x.color!=='string'||finite(x.area_acres)<0||Math.abs(finite(x.percent_of_study_area)-100*x.area_acres/total)>.0001)||Math.abs(dep.depth_classes.reduce((sum,x)=>sum+x.area_acres,0)-a)>tol)throw Error('Depression classes inconsistent');
   }
  }
- return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,mfd_comparison:mfd?copy(mfd):null,experimental:true,cell_grid_export:'Separate local CSV; snapshot includes model summary and grid metadata only'};
+ const q=d.resampling_comparison??null,alt=d.resampling_alternate??null;
+ if(d.requested_interpolation!==undefined&&d.requested_interpolation!==(isAlternate?'RSP_BilinearInterpolation':'RSP_NearestNeighbor'))throw Error('Invalid drainage interpolation');
+ if(isAlternate&&(q||alt))throw Error('Nested resampling comparison');
+ let validatedAlternate=null;
+ if(q){
+  if(!['in_progress','canceled','unavailable','compared'].includes(q.status))throw Error('Invalid resampling status');
+  if(q.status!=='compared'){if(alt||Object.keys(q).some(k=>!['status','detail'].includes(k)))throw Error('Incomplete resampling has values')}
+  else{
+   if(!alt||q.verification_status!=='not_field_verified'||q.evidence_kind!=='modeled_terrain_interpretation'||!q.limitations||d.requested_interpolation!=='RSP_NearestNeighbor'||alt.requested_interpolation!=='RSP_BilinearInterpolation'||q.baseline_requested_interpolation!==d.requested_interpolation||q.alternate_requested_interpolation!==alt.requested_interpolation||q.baseline_retrieved_at!==d.retrieved_at||q.alternate_retrieved_at!==alt.retrieved_at)throw Error('Invalid resampling provenance');
+   validatedAlternate=drainageSection({status:alt.status,data:alt},true);
+   const sameGrid=h=>h?.crs===g.crs&&h.width===g.width&&h.height===g.height&&Array.isArray(h.bbox)&&h.bbox.length===4&&h.bbox.every((x,i)=>x===g.bbox[i]);
+   if(!sameGrid(q.grid)||!sameGrid(alt.grid)||alt.status!==d.status||alt.requested_grid_m!==d.requested_grid_m||alt.requested_context_buffer_projected_m!==d.requested_context_buffer_projected_m||alt.context_valid_cells!==cn||Math.abs(alt.valid_area_acres-v)>tol||q.paired_valid_context_cells!==cn||!Number.isInteger(q.changed_context_cells)||q.changed_context_cells<0||q.changed_context_cells>cn||!cn||!v||Math.abs(finite(q.paired_valid_site_acres)-v)>tol||Math.abs(finite(q.changed_context_percent)-100*q.changed_context_cells/cn)>.0001)throw Error('Invalid resampling paired coverage');
+   const rmse=finite(q.rmse_difference_m),max=finite(q.maximum_absolute_difference_m),mean=finite(q.mean_signed_difference_m);
+   if(rmse<0||max<0||Math.abs(mean)>rmse+1e-8||rmse>max+1e-8||max>9500||(q.changed_context_cells===0&&(max!==0||rmse!==0||mean!==0)))throw Error('Invalid resampling differences');
+   for(const k of ['d8_same_class_percent','mfd_same_class_percent'])if(finite(q[k])<0||q[k]>100)throw Error('Invalid paired class agreement');
+   if(!mfd||!alt.mfd_comparison||q.baseline_horizontal_equal_percent!==mfd.horizontal_equal_neighbor_percent||q.baseline_vertical_equal_percent!==mfd.vertical_equal_neighbor_percent||q.alternate_horizontal_equal_percent!==alt.mfd_comparison.horizontal_equal_neighbor_percent||q.alternate_vertical_equal_percent!==alt.mfd_comparison.vertical_equal_neighbor_percent)throw Error('Resampling diagnostics inconsistent');
+  }
+ }else if(alt)throw Error('Alternate model without comparison');
+ return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,mfd_comparison:mfd?copy(mfd):null,resampling_comparison:q?copy(q):null,resampling_alternate:validatedAlternate,experimental:true,cell_grid_export:'Separate local CSV per requested interpolation; snapshot includes model summaries and grid metadata only'};
  }
  function terrainCatalogSection(){
  const r=input.terrain?.catalog,d=r?.data,base={status:r?.status||'not_analyzed',detail:r?.detail??null,source_url:'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',verification_status:'catalog_only_not_pixel_provenance',scope:'study_bounding_box',records:[],query_bbox_wgs84:null,retrieved_at:null,limitations:'Candidate raster records only; exact analytical grid sources, native DEM resolution and vertical datum remain unverified.'};
