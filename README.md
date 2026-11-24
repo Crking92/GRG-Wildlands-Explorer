@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.7.1
+## Alpha 0.7.2
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -89,3 +89,9 @@ Proposed Glass Root Garden client packet connecting Wildlands Explorer, field as
 Deliverables should be scoped to the actual service: consultation may produce a short summary/action list; biodiversity and ecological health assessment adds baseline and evidence; native landscape design adds proposed map and zone sheets; installation/contractor coordination adds implementation details; long-term stewardship adds monitoring and repeat comparisons; soil testing adds documented lab interpretation. No requirement that every client receive every section. Full master plan is modular, not a fixed-size mandatory package.
 
 Implementation sequence: (1) common data/status/provenance schema; (2) local project save/import with immutable dated baseline and separate proposed zones; (3) complete structured export including missing statuses; (4) additional environmental datasets and versioned integrations with existing dashboards; (5) printable browser report template with preview, section selection, source appendix and review gate, then print-to-PDF without paid services. No live client records, addresses, photographs or confidential notes committed to the public repository. A report is a saved dated snapshot, not a claim of current conditions. Verify map image reuse and attribution terms before embedding/exporting. Keep professional/paid service deployment consistent with hosting terms; use a permitted free hosting alternative if necessary.
+
+## Consulting integration foundation (0.7.2)
+- Property → Export property snapshot (JSON) downloads a browser-local, versioned snapshot. Existing CSV and GeoJSON exports remain available. See [the export contract](docs/consulting-property-export.md) and [v1 JSON Schema](schemas/property-snapshot-v1.schema.json).
+- Current data includes boundary metrics, source metadata, clipped habitat geometry and statistics, property-scoped point lookups and separate existing/proposed zones. Random IDs identify property, zone, point and snapshot. IDs remain stable for the exact selected boundary during the session; saved IDs persist in the JSON, but re-import is not implemented. Select a finished boundary before drawing zones; switching properties excludes previous zones from the active export. No client data uploaded by this feature. External GIS requests still transmit required coordinates; downloaded files are not encrypted.
+- Six modular report definitions and missing-data sections for field inventories, lab results, biodiversity/nativity, host relationships, photographs, monitoring and recommendations are reserved. These collectors, dashboard connections, combined GIS export, project import and PDF report generation are not implemented. The GIS feature roadmap continues; no additional infrastructure or duplicated datasets introduced.
+- Export builder synthetic tests cover missing numeric values, evidence separation, 50% partial coverage, property isolation, duplicate IDs and serialization. Browser testing, schema-validator execution and independent spatial QA remain pending. Earlier roadmap language about future structured export is superseded by this initial snapshot implementation.
