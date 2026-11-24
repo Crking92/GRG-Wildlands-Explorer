@@ -231,6 +231,19 @@ function build(input){
    if(cells>n||contextArea>ca+tol||Math.abs(area-dep.site_depression_area_acres)>tol||Math.abs(volume-dep.site_fill_volume_m3)>Math.max(.001,volume*1e-8)||Math.abs(max-dep.maximum_site_depth_m)>1e-8)throw Error('Depression group totals inconsistent');
   }
  }
+ const lc=d.local_catchment??null;
+ if(lc){
+  const x=dg?.groups?.find(z=>z.group_number===lc.group_number&&z.id===lc.group_id);
+  if(!x||!['estimated','unavailable'].includes(lc.status))throw Error('Invalid local catchment group or status');
+  if(lc.status==='unavailable'){if(Object.keys(lc).some(k=>!['status','group_id','group_number','detail'].includes(k)))throw Error('Unavailable catchment has values')}
+  else{
+   if(d.status!=='estimated'||cn!==n||ch?.status!=='estimated'||dg.status!=='estimated'||lc.evidence_kind!=='modeled_terrain_interpretation'||lc.verification_status!=='not_field_verified'||!lc.method||!lc.limitations)throw Error('Invalid catchment provenance');
+   const count=lc.context_cells,edge=lc.edge_contact_cells;
+   if(!Number.isInteger(count)||count<x.context_cells||count>n||lc.upstream_only_cells!==count-x.context_cells||!Number.isInteger(edge)||edge<0||edge>Math.min(count,2*g.width+2*g.height-4)||lc.edge_contact!==(edge>0))throw Error('Invalid catchment cells');
+   const [a,b,c,ga,gs,u,us,uo]=['local_area_acres','site_area_acres','outside_site_area_acres','group_area_acres','group_site_area_acres','upstream_only_area_acres','upstream_only_site_area_acres','upstream_only_outside_site_area_acres'].map(k=>finite(lc[k]));
+   if(a<=0||a>ca+tol||b>v+tol||[b,c,ga,gs,u,us,uo].some(x=>x<0)||Math.abs(a-b-c)>tol||Math.abs(ga-x.context_area_acres)>tol||Math.abs(gs-x.site_area_acres)>tol||Math.abs(a-ga-u)>tol||Math.abs(b-gs-us)>tol||Math.abs(u-us-uo)>tol||Math.abs(c-(ga-gs)-uo)>tol||Math.abs(finite(lc.site_share_percent)-100*b/a)>.0001||Math.abs(finite(lc.outside_share_percent)-100*c/a)>.0001)throw Error('Invalid catchment area partition');
+  }
+ }
  const q=d.resampling_comparison??null,alt=d.resampling_alternate??null;
  if(d.requested_interpolation!==undefined&&d.requested_interpolation!==(isAlternate?'RSP_BilinearInterpolation':'RSP_NearestNeighbor'))throw Error('Invalid drainage interpolation');
  if(isAlternate&&(q||alt))throw Error('Nested resampling comparison');
@@ -249,7 +262,7 @@ function build(input){
    if(!mfd||!alt.mfd_comparison||q.baseline_horizontal_equal_percent!==mfd.horizontal_equal_neighbor_percent||q.baseline_vertical_equal_percent!==mfd.vertical_equal_neighbor_percent||q.alternate_horizontal_equal_percent!==alt.mfd_comparison.horizontal_equal_neighbor_percent||q.alternate_vertical_equal_percent!==alt.mfd_comparison.vertical_equal_neighbor_percent)throw Error('Resampling diagnostics inconsistent');
   }
  }else if(alt)throw Error('Alternate model without comparison');
- return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,conditioned:ch?copy(ch):null,depression_groups:dg?copy(dg):null,mfd_comparison:mfd?copy(mfd):null,resampling_comparison:q?copy(q):null,resampling_alternate:validatedAlternate,experimental:true,cell_grid_export:'Separate local CSV per requested interpolation; snapshot includes model summaries and grid metadata only'};
+ return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,conditioned:ch?copy(ch):null,depression_groups:dg?copy(dg):null,local_catchment:lc?copy(lc):null,mfd_comparison:mfd?copy(mfd):null,resampling_comparison:q?copy(q):null,resampling_alternate:validatedAlternate,experimental:true,cell_grid_export:'Separate local CSV per requested interpolation; snapshot includes model summaries and grid metadata only'};
  }
  function terrainCatalogSection(){
  const r=input.terrain?.catalog,d=r?.data,base={status:r?.status||'not_analyzed',detail:r?.detail??null,source_url:'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',verification_status:'catalog_only_not_pixel_provenance',scope:'study_bounding_box',records:[],query_bbox_wgs84:null,retrieved_at:null,limitations:'Candidate raster records only; exact analytical grid sources, native DEM resolution and vertical datum remain unverified.'};
