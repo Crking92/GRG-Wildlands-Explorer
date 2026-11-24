@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.8.2
+## Alpha 0.8.3
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -112,3 +112,8 @@ Implementation sequence: (1) common data/status/provenance schema; (2) local pro
 - User confirmed both USDA soil provider options display correctly. No independent accuracy validation implied.
 - Retain right-side data panel and 55/45 default desktop split. Replace bulky panels with independently expandable category rows and separate synchronized TPWD/USDA map switches. Show property measurement and habitat composition summaries even when collapsed. Study controls collapse after successful boundary selection; primary analysis and export shortcuts remain visible. Clicking a habitat polygon opens its details.
 - Planned categories are clearly labeled as not calculated; no new datasets or ecological scores introduced. Existing export formats, source choices, property-scoped records and GIS tools retained. Browser/mobile visual and interaction QA pending; JavaScript syntax and element ID checks passed.
+
+## Unified property summary (0.8.3)
+- Removed Explore / Property / Point data / Plan navigation tabs and duplicate soil and habitat switches. One right-side expandable workspace holds search, boundary tools, analysis, basemaps, environmental categories, point inspection, ecological planning and exports.
+- Each environmental category contains its own controls, results and source settings. Both official soil providers remain selectable inside Soils. Regional TPWD visibility is independent of the clipped analysis overlay. All four export formats/actions are grouped under Property exports. The single Analyze study area action currently calculates habitats; soil composition and other datasets remain explicitly unimplemented.
+- Search and study controls collapse on completed boundary selection; habitat results expand on analysis or class selection. Default desktop split remains 55% map / 45% data. No GIS provider changes or new data estimates. Syntax, required controls, unique IDs and disclosure target checks passed; deployed visual and interaction testing remains pending.
