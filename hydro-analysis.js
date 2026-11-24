@@ -12,7 +12,10 @@ async function retrieve(id,t,site,query,signal,progress=()=>{}){
  if(!Number.isFinite(area)||area<=0||area/acre>1000||t.area(t.bboxPolygon(bbox))/acre>5000)throw Error('Study exceeds analysis limits; subdivide.');
  const m=await query(url,{f:'json'},signal),fields=(m.fields||[]).map(f=>String(f.name).toLowerCase()),objectField=(m.fields||[]).find(f=>f.type==='esriFieldTypeOID')?.name;
  if(m.id!==s.layer||m.name!==s.name||m.geometryType!==s.geometry||!objectField||!s.fields.every(k=>fields.includes(k)))throw Error('Unexpected USGS layer metadata');
- const idx=await query(url+'/query',{where:id==='stream'?'ftype = 460':'1=1',geometry:bbox.join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',returnIdsOnly:'true',f:'json'},signal);
+ const where={where:id==='stream'?'ftype = 460':'1=1',geometry:bbox.join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects'};
+ const idx=await query(url+'/query',{...where,returnIdsOnly:'true',f:'json'},signal);
+ // Some services may return null instead of an empty ID array. Never assume absence.
+ if(idx.objectIds===null&&!idx.exceededTransferLimit){const count=await query(url+'/query',{...where,returnCountOnly:'true',f:'json'},signal);if(count.count===0&&!count.exceededTransferLimit)return [];throw Error('Null feature index could not be verified as empty')}
  if(!Array.isArray(idx.objectIds)||idx.exceededTransferLimit)throw Error('Incomplete feature index');
  const ids=idx.objectIds.map(oid);if(ids.some(v=>v===null)||new Set(ids).size!==ids.length||ids.length>500)throw Error('Invalid or excessive feature IDs');
  const fs=[];let count=0;
