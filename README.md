@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.4
+## Alpha 0.5
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -11,6 +11,7 @@ A free, public, educational web map for exploring, measuring and understanding r
 - Mobile-responsive dark green interface, compass and coordinate navigation.
 - Address and place search via Photon / OpenStreetMap (explicit submit, temporary in-memory caching and per-browser request spacing; public demo service for reasonable usage only, no availability guarantee).
 - Experimental parcel point selection via City of Dripping Springs public GIS layer sourced from Hays CAD; preserves full Polygon/MultiPolygon and holes, requests only ID, county and dataset vintage fields, not owner information. Coverage, currency, terms and browser response still require verification. Manual boundaries remain available.
+- Separate existing-condition and proposed-habitat zone layers: draw named polygons, record notes, calculate approximate acres and square feet, switch views without changing the other layer, and export both as one GeoJSON FeatureCollection. Session-only; browser QA pending. No field verification, automatic suitability or legal accuracy implied.
 - No API keys, accounts, paid services or server.
 
 ## Deploy free
@@ -37,6 +38,7 @@ External services may change, be unavailable or impose usage restrictions. Verif
 4. Add land cover and tree canopy; soil types and attributes; elevation range, slope and aspect; hydrology, wetlands and flood zones.
 5. Add dated biodiversity occurrences and field survey measurements, keeping observations, modeled potential and recommendations distinct.
 6. Add baseline comparisons and reproducible ecological reports.
+7. Expand the two-map property master plan: test drawing, invalid polygons, mode switching, export and mobile behavior; add private local project import/export, explicit property and zone IDs, field-verification status, sampling points, soil lab records, photo points, plant inventories, management objectives, contractor notes, phases and report generation. Keep observed conditions separate from modeled evidence and proposed actions; preserve a dated baseline rather than overwriting it. Do not upload real client property details to the public repository.
 
 ## Project rules
 - Zero additional expenses unless explicitly approved. Start on GitHub Pages; reconsider only if scale, usage policies or functionality demand it.
