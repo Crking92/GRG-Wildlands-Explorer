@@ -29,19 +29,37 @@ function summarize(g,d,clip,area){
  const complete=valid>0&&missing<=Math.max(.0001,total*1e-9);
  return {status:!valid?'no_data':complete?'estimated':'partial_coverage',study_area_acres:total/acre,valid_area_acres:valid/acre,missing_area_acres:missing/acre,coverage_percent:100*valid/total,intersected_cells:count,requested_grid_m:step,min_m:complete?min:null,max_m:complete?max:null,mean_m:complete?weighted/valid:null,relief_m:complete?max-min:null,valid_only_min_m:valid?min:null,valid_only_max_m:valid?max:null,valid_only_mean_m:valid?weighted/valid:null};
 }
-async function analyze(site,signal,progress=()=>{}){
- if(!root.proj4||!root.Lerc||!root.GRGRasterAnalysis)throw Error('Terrain libraries unavailable');
- const get=async url=>{const r=await fetch(url,{signal,credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status);return r},json=async url=>{const j=await(await get(url)).json();if(j.error)throw Error(j.error.message||'Service error');return j};
- const m=metadata(await json(source+'?f=pjson'));if(!m.raw)throw Error('Raw elevation function unavailable');
- const a=root.GRGRasterAnalysis,g=grid(site,p=>root.proj4('EPSG:4326','EPSG:3857',p),a.mercArea);
- progress('Requesting '+g.step+' m service-grid elevation values…');
- const q=new URLSearchParams({bbox:g.bbox.join(','),bboxSR:'3857',imageSR:'3857',size:g.width+','+g.height,format:'lerc',f:'json',compressionTolerance:'0',interpolation:'RSP_NearestNeighbor',adjustAspectRatio:'false',renderingRule:JSON.stringify({rasterFunction:'None'})});
- const j=await json(source+'/exportImage?'+q);if(j.width!==g.width||j.height!==g.height||!a.mercator(j.extent?.spatialReference)||!['xmin','ymin','xmax','ymax'].every((k,i)=>Number.isFinite(j.extent[k])&&Math.abs(j.extent[k]-g.bbox[i])<.001))throw Error('Returned elevation grid differs from request');
- const href=new URL(j.href,source);if(href.protocol!=='https:'||href.origin!==new URL(source).origin)throw Error('Unexpected elevation download host');
- const bytes=await(await get(href.href)).arrayBuffer();if(bytes.byteLength<10||bytes.byteLength>5000000)throw Error('Invalid elevation response size');
- await root.Lerc.load({locateFile:n=>'https://cdn.jsdelivr.net/npm/lerc@4.2.0/'+n});if(signal.aborted)throw Error('Canceled');
- progress('Calculating boundary-weighted elevation…');const d=summarize(g,root.Lerc.decode(bytes),a.clip,a.mercArea);
- return {...d,source_id:'usgs_3dep_dem',source_url:source,retrieved_at:new Date().toISOString(),service_description:m.description,service_copyright:m.copyright,source_resolution_m:null,acquisition_date:null,vertical_datum:null,service_grid_crs:'EPSG:3857',method:'Raw 3DEP dynamic mosaic LERC; nearest-neighbor requested grid; spherical ground-area weighted cells clipped to boundary; minimum and maximum of intersected valid cells',limitations:'Experimental mosaic estimates. Actual source DEM resolution, acquisition date and local vertical datum not established. Requested Web Mercator grid spacing is not ground resolution. No field survey or independent GIS validation.',verification_status:'not_field_verified',evidence_kind:'mapped_estimate'};
+function requestParams(g){
+ return {bbox:g.bbox.join(','),bboxSR:'3857',imageSR:'3857',size:g.width+','+g.height,format:'tiff',pixelType:'F32',f:'image',interpolation:'RSP_NearestNeighbor',adjustAspectRatio:'false',noData:'-9999'};
 }
-root.GRGTerrain=Object.freeze({source,views,metadata,imageUrl,grid,summarize,analyze});
+async function decodeTiff(bytes,g,decoder){
+ const t=await decoder.fromArrayBuffer(bytes),im=await t.getImage(),fd=im.getFileDirectory(),keys=im.getGeoKeys()||{};
+ if(im.getWidth()!==g.width||im.getHeight()!==g.height||im.getSamplesPerPixel()!==1||Number(fd.SampleFormat?.[0]??fd.SampleFormat)!==3||Number(fd.BitsPerSample?.[0]??fd.BitsPerSample)!==32)throw Error('GeoTIFF is not the requested single-band float32 grid');
+ if(![3857,102100,102113].includes(Number(keys.ProjectedCSTypeGeoKey)))throw Error('GeoTIFF projected CRS not verified');
+ const box=im.getBoundingBox(),res=im.getResolution();
+ if(!Array.isArray(box)||box.length!==4||!box.every((x,i)=>Number.isFinite(x)&&Math.abs(x-g.bbox[i])<.01)||!Array.isArray(res)||Math.abs(res[0]-g.step)>.0001||Math.abs(res[1]+g.step)>.0001||fd.ModelTransformation)throw Error('GeoTIFF extent or grid spacing differs from request');
+ if(keys.GTRasterTypeGeoKey===2)throw Error('Unexpected pixel-is-point GeoTIFF registration');
+ const pixels=await im.readRasters({samples:[0],interleave:false}),p=pixels[0];if(pixels.length!==1||!(p instanceof Float32Array)||p.length!==g.width*g.height)throw Error('Unexpected elevation pixel type or count');
+ const nodata=im.getGDALNoData(),mask=new Uint8Array(p.length);if(nodata!==null&&nodata!==undefined&&typeof nodata!=='number')throw Error('Invalid GeoTIFF NoData metadata');
+ for(let i=0;i<p.length;i++){const v=p[i];mask[i]=(v===-9999||nodata!==null&&nodata!==undefined&&(v===Math.fround(nodata)||Number.isNaN(nodata)&&Number.isNaN(v)))?0:1}
+ return {width:g.width,height:g.height,pixels:[p],mask,source_nodata:nodata===null||nodata===undefined?null:Number.isNaN(nodata)?'NaN':nodata};
+}
+async function analyze(site,signal,progress=()=>{}){
+ if(!root.proj4||!root.GRGRasterAnalysis||!root.GeoTIFF?.fromArrayBuffer)throw Error('Terrain GeoTIFF or projection library unavailable; reload the page');
+ const get=async(url,stage)=>{const r=await fetch(url,{signal,credentials:'omit'});if(!r.ok){let detail='';try{const j=await r.json();if(typeof j?.error?.message==='string')detail=' — '+j.error.message.slice(0,180)}catch{}throw Error(stage+': HTTP '+r.status+detail)}return r};
+ const raw=await(await get(source+'?f=pjson','Service metadata')).json();if(raw.error)throw Error('Service metadata: '+String(raw.error.message||'USGS error').slice(0,180));
+ const m=metadata(raw);
+ // The service has no default rendering rule; explicitly reject a changed default.
+ if(raw.renderingRule&&Object.keys(raw.renderingRule).length)throw Error('Default elevation rendering rule is no longer raw');
+ const a=root.GRGRasterAnalysis,g=grid(site,p=>root.proj4('EPSG:4326','EPSG:3857',p),a.mercArea);
+ progress('Requesting '+g.step+' m floating-point GeoTIFF elevation grid…');
+ const response=await get(source+'/exportImage?'+new URLSearchParams(requestParams(g)),'GeoTIFF export');
+ const bytes=await response.arrayBuffer();if(bytes.byteLength<10||bytes.byteLength>5000000)throw Error('Invalid elevation GeoTIFF size');
+ const sig=new Uint8Array(bytes,0,4);if(!((sig[0]===73&&sig[1]===73&&[42,43].includes(sig[2])&&sig[3]===0)||(sig[0]===77&&sig[1]===77&&sig[2]===0&&[42,43].includes(sig[3]))))throw Error('GeoTIFF export returned a non-TIFF response');
+ if(signal.aborted)throw Error('Canceled');progress('Validating GeoTIFF coordinates and elevation values…');
+ const decoded=await decodeTiff(bytes,g,root.GeoTIFF);if(signal.aborted)throw Error('Canceled');
+ const d=summarize(g,decoded,a.clip,a.mercArea);
+ return {...d,source_id:'usgs_3dep_dem',source_url:source,retrieved_at:new Date().toISOString(),service_description:m.description,service_copyright:m.copyright,source_resolution_m:null,acquisition_date:null,vertical_datum:null,service_grid_crs:'EPSG:3857',raster_format:'GeoTIFF F32',requested_nodata:-9999,source_nodata:decoded.source_nodata,method:'Raw 3DEP dynamic mosaic float32 GeoTIFF; nearest-neighbor requested grid; spherical ground-area weighted cells clipped to boundary; minimum and maximum of intersected valid cells',limitations:'Experimental mosaic estimates. Actual source DEM resolution, acquisition date and local vertical datum not established. Requested Web Mercator grid spacing is not ground resolution. No field survey or independent GIS validation.',verification_status:'not_field_verified',evidence_kind:'mapped_estimate'};
+}
+root.GRGTerrain=Object.freeze({source,views,metadata,imageUrl,grid,summarize,requestParams,decodeTiff,analyze});
 })(globalThis);
