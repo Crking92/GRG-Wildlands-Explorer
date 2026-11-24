@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.6
+## Alpha 0.7
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -53,3 +53,9 @@ External services may change, be unavailable or impose usage restrictions. Verif
 ## Address-search patch (0.5.1)
 - Numbered street searches first query [Hays County GIS address points, January 2023](https://services6.arcgis.com/XnTA1N5QxtOFa9o8/ArcGIS/rest/services/CODS_Public_Map/FeatureServer/0) through the public City of Dripping Springs service, then try Photon with exact house-number and normalized street matching. Named places continue to use Photon. Results identify their source; no match is preferable to a misleading fuzzy address. Coverage outside Hays County and newer development remains limited. Submitted queries go to the providers; do not submit confidential locations.
 - Clear/reset and manual drawing now reset the parcel status text. User reports named place search, aerial imagery and boundary measurement working; exact-address patch confirmed working by user on November 24, 2026. JavaScript syntax and four synthetic address matching checks passed; no private address tested remotely.
+
+## Workspace redesign (0.7)
+- Desktop defaults to 46% map / 54% data (minimum 420 px data column); optional wider-map button. Mobile retains stacked layout. Leaflet resizes with the map container.
+- Explore, Property, Point data and Plan sections preserve active map and study state. A finished boundary displays summary metrics across sections. Click an analyzed habitat class or a visible habitat polygon inside the finished study area to inspect class-level acreage, square footage, percent of total boundary, TPWD class name and code; independent checkboxes toggle visibility, with zoom-to-class control.
+- Fixed habitat label contrast, hidden control visibility, and moved the analysis action adjacent to study geometry controls in 0.6.1. Negligible rounding residuals are omitted from display only; CSV retains the raw remainder.
+- User screenshot confirms a successful habitat analysis for a drawn study area (three mapped classes, displayed coverage 100%); this does not independently validate spatial accuracy. Browser QA of 0.7 and comparison with independent GIS calculations remain pending.
