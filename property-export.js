@@ -256,6 +256,19 @@ function build(input){
  else if(!Number.isFinite(er.mean_index_m)||!Number.isFinite(er.maximum_index_m)||er.mean_index_m<0||er.maximum_index_m<0||er.mean_index_m>er.maximum_index_m+Math.max(1e-9,er.maximum_index_m*1e-9)||!Number.isInteger(er.maximum_cell_index)||er.maximum_cell_index<0||er.maximum_cell_index>=n)throw Error('Invalid erosion screening index');
 }
  const er=d.erosion_screening??null;validateErosion(er,d,ch,n,total,tol);
+ function validateSoilErosion(q,er,total){
+ if(!q)return;
+ if(!er||!['estimated','partial_coverage','no_data'].includes(er.status)||!['estimated','no_data'].includes(q.status)||q.source_id!=='usda_sda_tabular'||q.spatial_source_id!=='usda_ssurgo_rest'||q.verification_status!=='not_field_verified'||!q.spatial_retrieved_at||!q.method||!q.limitations||!Array.isArray(q.rows)||!q.rows.length||q.rows.length>25)throw Error('Invalid soil terrain comparison provenance');
+ const tol=Math.max(.0001,er.valid_area_acres*.001),num=x=>Number.isFinite(x)&&x>=0,keys=new Set();let sum=0;
+ if(q.terrain_valid_area_acres!==er.valid_area_acres||!num(q.soil_terrain_intersection_acres)||q.soil_terrain_intersection_acres>er.valid_area_acres+tol||q.status!==(q.soil_terrain_intersection_acres>0?'estimated':'no_data'))throw Error('Invalid soil terrain coverage');
+ for(const u of q.rows){if(!u.mukey||keys.has(u.mukey)||!num(u.mapped_area_acres)||u.mapped_area_acres>total+tol||!num(u.terrain_intersection_acres)||!num(u.edge_influenced_intersection_acres)||u.edge_influenced_intersection_acres>u.terrain_intersection_acres+tol)throw Error('Invalid soil terrain unit');keys.add(u.mukey);sum+=u.terrain_intersection_acres;
+ if(u.terrain_intersection_acres===0?(u.mean_terrain_index_m!==null||u.maximum_terrain_index_m!==null):(!num(u.mean_terrain_index_m)||!num(u.maximum_terrain_index_m)||u.mean_terrain_index_m>u.maximum_terrain_index_m+Math.max(1e-9,u.maximum_terrain_index_m*1e-9)))throw Error('Invalid soil terrain index');
+ const e=u.erodibility;if(!e||!Array.isArray(e.components))throw Error('Missing component evidence');
+ for(const k of ['kw','kf']){const a=e[k],valid=x=>x===null||num(x)&&x<=1;if(!a||!valid(a.known_share_mean)||!valid(a.full_unit_mean)||!(a.known_component_share_percent===null||num(a.known_component_share_percent)&&a.known_component_share_percent<=100.01)||a.full_unit_mean!==null&&(!e.component_share_complete||Math.abs(a.known_component_share_percent-100)>.01||a.full_unit_mean!==a.known_share_mean)||a.known_share_mean!==null&&!(a.known_component_share_percent>0))throw Error('Invalid soil factor coverage')}
+ }
+ if(Math.abs(sum-q.soil_terrain_intersection_acres)>tol)throw Error('Invalid soil terrain partition');
+}
+ const se=d.soil_erosion_comparison??null;validateSoilErosion(se,er,total);
  const q=d.resampling_comparison??null,alt=d.resampling_alternate??null;
  if(d.requested_interpolation!==undefined&&d.requested_interpolation!==(isAlternate?'RSP_BilinearInterpolation':'RSP_NearestNeighbor'))throw Error('Invalid drainage interpolation');
  if(isAlternate&&(q||alt))throw Error('Nested resampling comparison');
@@ -274,7 +287,7 @@ function build(input){
    if(!mfd||!alt.mfd_comparison||q.baseline_horizontal_equal_percent!==mfd.horizontal_equal_neighbor_percent||q.baseline_vertical_equal_percent!==mfd.vertical_equal_neighbor_percent||q.alternate_horizontal_equal_percent!==alt.mfd_comparison.horizontal_equal_neighbor_percent||q.alternate_vertical_equal_percent!==alt.mfd_comparison.vertical_equal_neighbor_percent)throw Error('Resampling diagnostics inconsistent');
   }
  }else if(alt)throw Error('Alternate model without comparison');
- return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,conditioned:ch?copy(ch):null,depression_groups:dg?copy(dg):null,local_catchment:lc?copy(lc):null,erosion_screening:er?copy(er):null,mfd_comparison:mfd?copy(mfd):null,resampling_comparison:q?copy(q):null,resampling_alternate:validatedAlternate,experimental:true,cell_grid_export:'Separate local CSV per requested interpolation; snapshot includes model summaries and grid metadata only'};
+ return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,conditioned:ch?copy(ch):null,depression_groups:dg?copy(dg):null,local_catchment:lc?copy(lc):null,erosion_screening:er?copy(er):null,soil_erosion_comparison:se?copy(se):null,mfd_comparison:mfd?copy(mfd):null,resampling_comparison:q?copy(q):null,resampling_alternate:validatedAlternate,experimental:true,cell_grid_export:'Separate local CSV per requested interpolation; snapshot includes model summaries and grid metadata only'};
  }
  function terrainCatalogSection(){
  const r=input.terrain?.catalog,d=r?.data,base={status:r?.status||'not_analyzed',detail:r?.detail??null,source_url:'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',verification_status:'catalog_only_not_pixel_provenance',scope:'study_bounding_box',records:[],query_bbox_wgs84:null,retrieved_at:null,limitations:'Candidate raster records only; exact analytical grid sources, native DEM resolution and vertical datum remain unverified.'};
