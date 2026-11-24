@@ -35,7 +35,7 @@ function summarize(id,g,decoded){
  const complete=missing<=Math.max(.0001,total*1e-9),pct=v=>100*v/total;
  return {status:!valid?'no_data':complete?'estimated':'partial_coverage',study_area_acres:total/acre,valid_area_acres:valid/acre,missing_area_acres:missing/acre,coverage_percent:pct(valid),intersected_cells:count,native_resolution_m:30,records:id==='land'?[...areas].map(([code,a])=>({code,name:classes[code][0],color:classes[code][1],acres:a/acre,percent_of_study_area:complete?pct(a):null,percent_of_valid_area:a/valid*100})).sort((a,b)=>b.acres-a.acres):[],estimated_covered_acres:id==='land'||!complete||!valid?null:covered/acre,percent_of_study_area:id==='land'||!complete||!valid?null:pct(covered),known_covered_acres:id==='land'||!valid?null:covered/acre,percent_of_valid_area:id==='land'||!valid?null:100*covered/valid};
 }
-async function analyze(id,site,year,signal,progress=()=>{}){
+async function analyze(id,site,year,signal,progress=()=>{},capture=null){
  const s=root.GRGRasterMaps?.sources[id];if(!s||!root.proj4||!root.Lerc)throw Error('Raster analysis libraries unavailable');
  const get=async(url)=>{const r=await fetch(url,{signal,credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status);return r};
  const json=async(url)=>{const j=await(await get(url)).json();if(j.error)throw Error(j.error.message||'Image service error');return j};
@@ -51,8 +51,8 @@ async function analyze(id,site,year,signal,progress=()=>{}){
  const href=new URL(j.href,s.url);if(href.protocol!=='https:'||href.origin!==new URL(s.url).origin)throw Error('Unexpected raw raster download host');
  const res=await get(href.href),bytes=await res.arrayBuffer();if(bytes.byteLength<10||bytes.byteLength>5000000)throw Error('Invalid raw raster response size');
  await root.Lerc.load({locateFile:n=>'https://cdn.jsdelivr.net/npm/lerc@4.2.0/'+n});if(signal.aborted)throw Error('Canceled');
- const decoded=root.Lerc.decode(bytes);progress('Weighting raster cells by boundary intersection…');const result=summarize(id,g,decoded);
+ const decoded=root.Lerc.decode(bytes);progress('Weighting raster cells by boundary intersection…');const result=summarize(id,g,decoded);if(typeof capture==='function')capture({grid:g,decoded});
  return {...result,source_id:s.source_id,source_url:s.url,year,source_raster_ids:catalog.objectIds,retrieved_at:new Date().toISOString(),method:(g.isMerc?'30 m Web Mercator service grid; spherical ground-area correction of intersected cells; service may resample original data. ':'Native 30 m equal-area service grid; ')+'Raw lossless LERC, no renderer; intersected cell area weighting, no extrapolation across missing cells',verification_status:'not_field_verified',evidence_kind:'mapped_estimate',native_crs_wkt:g.isMerc?null:g.wkt,service_grid_crs:g.isMerc?'EPSG:3857':g.wkt,service_grid_projection:g.isMerc?'web_mercator':'albers_equal_area',native_grid_origin:g.nativeOrigin,limitations:'Experimental; independent GIS validation pending. 30 m cell values do not resolve individual trees or structures; assumed uniform within each cell. Dataset revision unknown. '+(g.isMerc?'Web Mercator 30 m service cells are not 30 m ground cells; original raster grid equivalence unverified.':'')};
 }
-root.GRGRasterAnalysis=Object.freeze({grid,summarize,analyze,area,clip,mercArea,mercator});
+root.GRGRasterAnalysis=Object.freeze({grid,summarize,analyze,area,clip,mercArea,mercator,classes});
 })(globalThis);
