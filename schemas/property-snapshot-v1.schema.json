@@ -178,6 +178,25 @@
         },
         "geology": {
           "$ref": "#/$defs/section"
+        },
+        "groundwater": {
+          "type": "object",
+          "properties": {
+            "major": {
+              "$ref": "#/$defs/section"
+            },
+            "minor": {
+              "$ref": "#/$defs/section"
+            },
+            "zones": {
+              "$ref": "#/$defs/section"
+            }
+          },
+          "required": [
+            "major",
+            "minor",
+            "zones"
+          ]
         }
       },
       "required": [
