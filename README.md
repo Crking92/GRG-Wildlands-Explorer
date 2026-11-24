@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.7.2
+## Alpha 0.8
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -95,3 +95,10 @@ Implementation sequence: (1) common data/status/provenance schema; (2) local pro
 - Current data includes boundary metrics, source metadata, clipped habitat geometry and statistics, property-scoped point lookups and separate existing/proposed zones. Random IDs identify property, zone, point and snapshot. IDs remain stable for the exact selected boundary during the session; saved IDs persist in the JSON, but re-import is not implemented. Select a finished boundary before drawing zones; switching properties excludes previous zones from the active export. No client data uploaded by this feature. External GIS requests still transmit required coordinates; downloaded files are not encrypted.
 - Six modular report definitions and missing-data sections for field inventories, lab results, biodiversity/nativity, host relationships, photographs, monitoring and recommendations are reserved. These collectors, dashboard connections, combined GIS export, project import and PDF report generation are not implemented. The GIS feature roadmap continues; no additional infrastructure or duplicated datasets introduced.
 - Export builder synthetic tests cover missing numeric values, evidence separation, 50% partial coverage, property isolation, duplicate IDs and serialization. Browser testing, schema-validator execution and independent spatial QA remain pending. Earlier roadmap language about future structured export is superseded by this initial snapshot implementation.
+
+## Soil mapping phase 1 (0.8)
+- Optional SSURGO map-unit overlay from [USDA NRCS Soil Data Access WMS](https://sdmdataaccess.nrcs.usda.gov/Spatial/SDM.wms), MapunitPoly layer, WMS 1.1.1, transparent PNG. See [official service documentation](https://sdmdataaccess.nrcs.usda.gov/webservicehelp.aspx) and [layer help](https://sdmdataaccess.nrcs.usda.gov/LayerHelp.htm).
+- Toggle in Explore > Map views or Property > Soils; independent opacity and visible status for off, zoom required, loading, failed tiles and loaded tiles (coverage unverified). Only requests at zoom 13 or closer; USDA applies its own scale thresholds. A blank tile is not proof of absent soils. No paid services or local national soil dataset.
+- JSON snapshot records soil overlay source and display status; quantitative soil_map remains not_implemented. No soil acreage, percentages, properties or laboratory results are invented. Source registry records unknown vintage. No imagery is exported.
+- Next: test actual tiles in browser at known Hays County sites; query SSURGO polygons by study boundary, verify complete response and metadata, calculate clipped composition with coverage/overlap checks, then add documented map-unit/component/horizon attributes. Preserve soil data in the existing snapshot schema. Do not conflate mapped estimates and field soil samples.
+- JavaScript syntax and interface ID checks passed; live WMS rendering and coverage not independently tested.
