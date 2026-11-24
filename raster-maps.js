@@ -2,9 +2,9 @@
 (function(root){
 'use strict';
 const sources={
- canopy:{label:'Tree canopy',url:'https://www.mrlc.gov/geoserver/mrlc_NLCD-Tree-Canopy-Native_conus_year_data/wms',source_id:'mrlc_canopy_wms',attribution:'USDA Forest Service / MRLC'},
- land:{label:'Land cover',url:'https://www.mrlc.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms',source_id:'mrlc_land_wms',attribution:'USGS / MRLC'},
- impervious:{label:'Impervious surfaces',url:'https://www.mrlc.gov/geoserver/mrlc_Fractional-Impervious-Surface-Native_conus_year_data/wms',source_id:'mrlc_impervious_wms',attribution:'USGS / MRLC'}
+ canopy:{label:'Tree canopy',preset:'CONUS_Canopy',url:'https://www.mrlc.gov/geoserver/mrlc_NLCD-Tree-Canopy-Native_conus_year_data/wms',source_id:'mrlc_canopy_wms',attribution:'USDA Forest Service / MRLC'},
+ land:{label:'Land cover',preset:'CONUS_Land_Cover',url:'https://www.mrlc.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms',source_id:'mrlc_land_wms',attribution:'USGS / MRLC'},
+ impervious:{label:'Impervious surfaces',preset:'CONUS_Impervious',url:'https://www.mrlc.gov/geoserver/mrlc_Fractional-Impervious-Surface-Native_conus_year_data/wms',source_id:'mrlc_impervious_wms',attribution:'USGS / MRLC'}
 };
 const children=(el,name)=>Array.from(el?.children||[]).filter(c=>c.localName===name);
 const one=(el,name)=>children(el,name)[0];
@@ -32,10 +32,16 @@ function capabilities(xml){
  if(!layers.length||layers.length>150)throw Error('No supported named layers or too many layers');
  return layers;
 }
+function presetLayer(id,layers){
+ const s=sources[id];if(!s)throw Error('Unknown map source');
+ const matches=layers.filter(l=>typeof l.name==='string'&&l.name.split(':').pop()===s.preset);
+ if(matches.length!==1)throw Error(matches.length?'Ambiguous '+s.preset+' layers':'Expected '+s.preset+' layer not advertised');
+ const l=matches[0];return {...l,defaultTime:l.times[0]?.value||null};
+}
 async function discover(id,signal,request=fetch){
  const s=sources[id];if(!s)throw Error('Unknown map source');const q=new URLSearchParams({service:'WMS',request:'GetCapabilities',version:'1.1.1'});
  const r=await request(s.url+'?'+q,{signal,credentials:'omit'});if(!r.ok)throw Error('WMS HTTP '+r.status);
- const xml=await r.text();if(xml.length>2000000)throw Error('Capabilities response too large');return capabilities(xml)
+ const xml=await r.text();if(xml.length>2000000)throw Error('Capabilities response too large');return [presetLayer(id,capabilities(xml))]
 }
-root.GRGRasterMaps=Object.freeze({sources,times,capabilities,discover});
+root.GRGRasterMaps=Object.freeze({sources,times,capabilities,presetLayer,discover});
 })(globalThis);
