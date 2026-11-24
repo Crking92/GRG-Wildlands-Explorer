@@ -528,8 +528,8 @@ async function runResampling(){
  const d=r.summary,b=await GRGDrainage.analyze(boundary(),d.requested_context_buffer_projected_m,c.signal,msg=>{if(n===s.serial){r.summary.resampling_comparison.detail='Bilinear: '+msg;refreshDrain()}},d.minimum_requested_grid_m??1,'RSP_BilinearInterpolation');
  if(n!==s.serial||c.signal.aborted)throw Error('Canceled or timed out');
  b.mfd=GRGMFD.analyze(b);b.summary.mfd_comparison=b.mfd.summary;
- try{b.depression=GRGDepressions.analyze(b);b.summary.depressions=b.depression.summary}catch(e){b.depression={depth:null,summary:{status:'unavailable',detail:String(e.message||e)}}}
- const q=GRGResampling.compare(r,b);r.alternate=b;r.summary.resampling_comparison=q;
+ try{b.depression=GRGDepressions.analyze(b);b.summary.depressions=b.depression.summary}catch(e){b.depression={depth:null,summary:{status:'unavailable',detail:String(e.message||e),site_depression_area_acres:null,site_fill_volume_m3:null,maximum_site_depth_m:null,depth_classes:[]}};b.summary.depressions=b.depression.summary}
+ const q=GRGResampling.compare(r,b);r.alternate=b;r.summary.resampling_comparison=q;r.summary.resampling_alternate=b.summary;
  }catch(e){if(n===s.serial){r.summary.resampling_comparison={status:'unavailable',detail:'Comparison unavailable: '+(c.signal.aborted?'request timed out':String(e.message||e))+'. Original model preserved.'}}}
  finally{clearTimeout(timer);if(n===s.serial){s.busy=false;s.comparing=false;refreshDrain()}}
 }
