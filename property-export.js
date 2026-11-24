@@ -171,6 +171,18 @@ function build(input){
  for(const rows of [d.accumulation_classes,d.routing_classes]){if(!Array.isArray(rows)||rows.length!==5||new Set(rows.map(x=>x.label)).size!==5||rows.some(x=>!x.label)||Math.abs(rows.reduce((s,x)=>s+checkRow(x),0)-v)>tol)throw Error('Drainage classes inconsistent')}
  checkRow(d.edge_or_nodata_influenced_area);
  if(v){const peak=finite(d.maximum_local_contributing_area_acres);if(peak<=0||peak>ca+tol||!Number.isInteger(d.maximum_cell_index)||d.maximum_cell_index<0||d.maximum_cell_index>=n)throw Error('Invalid local contributing area maximum')}else if(d.maximum_local_contributing_area_acres!==null||d.maximum_cell_index!==null)throw Error('No-data drainage has maximum');
+ const mfd=d.mfd_comparison??null;
+ if(mfd){
+  if(mfd.status==='unavailable'){if(mfd.maximum_local_contributing_area_acres!==null||!Array.isArray(mfd.accumulation_classes)||mfd.accumulation_classes.length)throw Error('Unavailable MFD has values')}
+  else{
+   if(mfd.status!==d.status||mfd.exponent!==1.1||mfd.evidence_kind!=='modeled_terrain_interpretation'||mfd.verification_status!=='not_field_verified'||!mfd.method||!mfd.limitations)throw Error('Invalid MFD provenance or status');
+   if(!Array.isArray(mfd.accumulation_classes)||mfd.accumulation_classes.length!==5||mfd.accumulation_classes.some((x,i)=>x.label!==d.accumulation_classes[i].label)||Math.abs(mfd.accumulation_classes.reduce((s,x)=>s+checkRow(x),0)-v)>tol)throw Error('MFD class area inconsistent');
+   for(const x of [mfd.same_accumulation_class_area,mfd.multiple_receivers_area,mfd.edge_or_nodata_influenced_area])checkRow(x);
+   if(v){const peak=finite(mfd.maximum_local_contributing_area_acres);if(peak<=0||peak>ca+tol||!Number.isInteger(mfd.maximum_cell_index)||mfd.maximum_cell_index<0||mfd.maximum_cell_index>=n)throw Error('Invalid MFD peak')}else if(mfd.maximum_local_contributing_area_acres!==null||mfd.maximum_cell_index!==null)throw Error('No-data MFD has peak');
+   if(cn){const lo=finite(mfd.context_elevation_min_m),hi=finite(mfd.context_elevation_max_m);if(lo< -500||hi>9000||lo>hi)throw Error('Invalid MFD context elevation')}else if(mfd.context_elevation_min_m!==null||mfd.context_elevation_max_m!==null)throw Error('No-data MFD has elevation');
+   for(const k of ['horizontal_equal_neighbor_percent','vertical_equal_neighbor_percent'])if(mfd[k]!==null&&(finite(mfd[k])<0||mfd[k]>100))throw Error('Invalid equal-neighbor diagnostic');
+  }
+ }
  const dep=d.depressions??null;
  if(dep){
   if(!['estimated','unavailable'].includes(dep.status)||!Array.isArray(dep.depth_classes))throw Error('Invalid depression model status');
@@ -184,7 +196,7 @@ function build(input){
    if(dep.depth_classes.length!==labels.length||dep.depth_classes.some((x,i)=>x.label!==labels[i]||typeof x.color!=='string'||finite(x.area_acres)<0||Math.abs(finite(x.percent_of_study_area)-100*x.area_acres/total)>.0001)||Math.abs(dep.depth_classes.reduce((sum,x)=>sum+x.area_acres,0)-a)>tol)throw Error('Depression classes inconsistent');
   }
  }
- return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,experimental:true,cell_grid_export:'Separate local CSV; snapshot includes model summary and grid metadata only'};
+ return {...section(d.status,'Potential drainage',[],r.detail??null),...base,...copy(d),depressions:dep?copy(dep):null,mfd_comparison:mfd?copy(mfd):null,experimental:true,cell_grid_export:'Separate local CSV; snapshot includes model summary and grid metadata only'};
  }
  function terrainCatalogSection(){
  const r=input.terrain?.catalog,d=r?.data,base={status:r?.status||'not_analyzed',detail:r?.detail??null,source_url:'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',verification_status:'catalog_only_not_pixel_provenance',scope:'study_bounding_box',records:[],query_bbox_wgs84:null,retrieved_at:null,limitations:'Candidate raster records only; exact analytical grid sources, native DEM resolution and vertical datum remain unverified.'};
