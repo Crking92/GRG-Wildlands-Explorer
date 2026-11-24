@@ -197,6 +197,9 @@
             "minor",
             "zones"
           ]
+        },
+        "climate": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
