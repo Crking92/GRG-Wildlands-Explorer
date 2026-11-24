@@ -172,6 +172,9 @@
         },
         "impervious_surfaces": {
           "$ref": "#/$defs/section"
+        },
+        "vegetation_height": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
