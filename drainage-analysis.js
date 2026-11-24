@@ -4,15 +4,16 @@
 const acre=4046.8564224,R=6378137,source='https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer';
 const dirs=[[-1,0,'N'],[-1,1,'NE'],[0,1,'E'],[1,1,'SE'],[1,0,'S'],[1,-1,'SW'],[0,-1,'W'],[-1,-1,'NW']];
 const classes=[['Under 0.1 ac',.1,'#456b76'],['0.1–<0.5 ac',.5,'#67b2bf'],['0.5–<2 ac',2,'#39c9f5'],['2–<10 ac',10,'#326ee7'],['10+ ac',Infinity,'#7c4be4']];
-function plan(site,project,area,buffer,dem){
+function plan(site,project,area,buffer,dem,minimumStep=1){
+ if(![1,2,5,10,20,30].includes(minimumStep))throw Error('Unsupported minimum projected grid spacing');
  if(![100,250,500].includes(buffer))throw Error('Unsupported context buffer');
  const g=dem.grid(site,project,area),base=g.bbox;
  const vertices=g.polys.reduce((n,p)=>n+p.reduce((s,r)=>s+r.length,0),0);
- for(const step of [1,2,5,10,20,30]){
+ for(const step of [1,2,5,10,20,30].filter(v=>v>=minimumStep)){
   const bbox=[Math.floor((base[0]-buffer)/step)*step,Math.floor((base[1]-buffer)/step)*step,Math.ceil((base[2]+buffer)/step)*step,Math.ceil((base[3]+buffer)/step)*step],width=Math.round((bbox[2]-bbox[0])/step),height=Math.round((bbox[3]-bbox[1])/step);
   const siteBox=[Math.floor(base[0]/step)*step,Math.floor(base[1]/step)*step,Math.ceil(base[2]/step)*step,Math.ceil(base[3]/step)*step];
   const work=Math.ceil((siteBox[2]-siteBox[0])/step)*Math.ceil((siteBox[3]-siteBox[1])/step)*vertices;
-  if(width>=3&&height>=3&&width<=1000&&height<=1000&&width*height<=60000&&work<=12000000)return {bbox,width,height,step,buffer,siteBox,polys:g.polys,total:g.total};
+  if(width>=3&&height>=3&&width<=1000&&height<=1000&&width*height<=60000&&work<=12000000)return {bbox,width,height,step,buffer,minimumStep,siteBox,polys:g.polys,total:g.total};
  }
  throw Error('Buffered grid too large or complex; choose a smaller buffer or study area');
 }
@@ -41,12 +42,12 @@ function summarize(g,m,clip,area){
  const tol=Math.max(.02,g.total*1e-7);if(Math.abs(valid+missing-g.total)>tol||Math.abs(sums.reduce((a,b)=>a+b,0)-valid)>tol||Math.abs(stops.reduce((a,b)=>a+b,0)-valid)>tol)throw Error('Study area conservation failed');
  const complete=valid>0&&missing<=Math.max(.0001,g.total*1e-9),status=!valid?'no_data':complete?'estimated':'partial_coverage';
  const rec=(a)=>({area_acres:a/acre,percent_of_study_area:complete?100*a/g.total:null,percent_of_valid_area:valid?100*a/valid:null});
- const out={status,study_area_acres:g.total/acre,valid_area_acres:valid/acre,missing_area_acres:missing/acre,coverage_percent:100*valid/g.total,site_cells:siteCells,requested_grid_m:g.step,requested_context_buffer_projected_m:g.buffer,grid:{bbox:g.bbox,width:w,height:h,crs:'EPSG:3857'},context_valid_cells:m.validCount,context_total_cells:w*h,context_valid_area_acres:m.contextValidArea/acre,context_valid_cell_percent:100*m.validCount/(w*h),maximum_local_contributing_area_acres:peak,maximum_cell_index:peakIndex,edge_or_nodata_influenced_area:rec(edge),accumulation_classes:classes.map((c,i)=>({label:c[0],color:c[2],...rec(sums[i])})),routing_classes:['Routed downslope','Strict local low cell','Flat / unresolved cell','Edge / NoData stop','Equal steepest drop / unresolved'].map((label,i)=>({label,...rec(stops[i])}))};
+ const out={status,study_area_acres:g.total/acre,valid_area_acres:valid/acre,missing_area_acres:missing/acre,coverage_percent:100*valid/g.total,site_cells:siteCells,requested_grid_m:g.step,minimum_requested_grid_m:g.minimumStep??1,requested_context_buffer_projected_m:g.buffer,grid:{bbox:g.bbox,width:w,height:h,crs:'EPSG:3857'},context_valid_cells:m.validCount,context_total_cells:w*h,context_valid_area_acres:m.contextValidArea/acre,context_valid_cell_percent:100*m.validCount/(w*h),maximum_local_contributing_area_acres:peak,maximum_cell_index:peakIndex,edge_or_nodata_influenced_area:rec(edge),accumulation_classes:classes.map((c,i)=>({label:c[0],color:c[2],...rec(sums[i])})),routing_classes:['Routed downslope','Strict local low cell','Flat / unresolved cell','Edge / NoData stop','Equal steepest drop / unresolved'].map((label,i)=>({label,...rec(stops[i])}))};
  return {summary:out,weights};
 }
-async function analyze(site,buffer,signal,progress=()=>{}){
+async function analyze(site,buffer,signal,progress=()=>{},minimumStep=1){
  const dem=root.GRGTerrain,a=root.GRGRasterAnalysis;if(!dem||!a||!root.proj4||!root.GeoTIFF?.fromArrayBuffer)throw Error('Drainage libraries unavailable');
- const g=plan(site,p=>root.proj4('EPSG:4326','EPSG:3857',p),a.mercArea,buffer,dem);
+ const g=plan(site,p=>root.proj4('EPSG:4326','EPSG:3857',p),a.mercArea,buffer,dem,minimumStep);
  const get=async(url,stage)=>{const r=await fetch(url,{signal,credentials:'omit'});if(!r.ok){let detail='';try{const j=await r.json();if(typeof j?.error?.message==='string')detail=' — '+j.error.message.slice(0,180)}catch{}throw Error(stage+': HTTP '+r.status+detail)}return r};
  const raw=await(await get(source+'?f=pjson','Elevation metadata')).json();if(raw.error)throw Error('Elevation metadata unavailable');dem.metadata(raw);if(raw.renderingRule&&Object.keys(raw.renderingRule).length)throw Error('Default elevation rendering rule no longer raw');
  progress('Requesting buffered '+g.step+' m projected elevation grid…');const r=await get(source+'/exportImage?'+new URLSearchParams(dem.requestParams(g)),'Drainage GeoTIFF'),bytes=await r.arrayBuffer();if(bytes.byteLength<10||bytes.byteLength>5000000)throw Error('Invalid drainage raster size');
