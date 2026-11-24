@@ -9,10 +9,10 @@ function mercArea(ring){if(ring.length<3)return 0;const R=6378137,origin=R*Math.
 function clip(ring,b,measure=area){let p=ring;for(const [axis,edge,sign] of [[0,b[0],1],[0,b[2],-1],[1,b[1],1],[1,b[3],-1]]){if(!p.length)break;const out=[];let a=p.at(-1),inside=(a[axis]-edge)*sign>=0;for(const z of p){const ok=(z[axis]-edge)*sign>=0;if(ok!==inside){const t=(edge-a[axis])/(z[axis]-a[axis]);const v=[a[0]+t*(z[0]-a[0]),a[1]+t*(z[1]-a[1])];v[axis]=edge;out.push(v)}if(ok)out.push(z);a=z;inside=ok}p=out}return measure(p)}
 function polyArea(p,b,measure=area){const a=b?clip(p[0],b,measure):measure(p[0]);return a-p.slice(1).reduce((s,r)=>s+(b?clip(r,b,measure):measure(r)),0)}
 function mercator(sr){return [3857,102100,102113].includes(sr?.latestWkid)||[3857,102100,102113].includes(sr?.wkid)}
-function grid(site,m,project){
+function grid(site,m,project,options={}){
  if(!['Polygon','MultiPolygon'].includes(site?.geometry?.type))throw Error('Study polygon required');
- const e=m.extent,sr=e?.spatialReference;if(!e||!sr||!['xmin','ymin','xmax','ymax'].every(k=>Number.isFinite(e[k]))||m.pixelSizeX!==30||m.pixelSizeY!==30||m.bandCount!==1||m.pixelType!=='U8'||!m.rasterFunctionInfos?.some(f=>f.name==='None'))throw Error('Native 30 m single-band raw grid not established');
- const isMerc=mercator(sr),wkt=isMerc?'EPSG:3857':sr.wkt;if(!isMerc&&(typeof wkt!=='string'||!(/PROJECTION\s*\[\s*"Albers"/i.test(wkt))||!(/UNIT\s*\[\s*"Met(?:er|re)"\s*,\s*1(?:\.0+)?\s*\]/i.test(wkt))))throw Error('Supported service grid projection not established');const measure=isMerc?mercArea:area;
+ const e=m.extent,sr=e?.spatialReference;if(!e||!sr||!['xmin','ymin','xmax','ymax'].every(k=>Number.isFinite(e[k]))||m.pixelSizeX!==30||m.pixelSizeY!==30||m.bandCount!==1||m.pixelType!==(options.pixelType||'U8')||!m.rasterFunctionInfos?.some(f=>f.name==='None'))throw Error('Native 30 m single-band raw grid not established');
+ const isMerc=mercator(sr),is5070=options.allow5070===true&&(sr.latestWkid??sr.wkid)===5070,wkt=isMerc?'EPSG:3857':is5070?'EPSG:5070':sr.wkt;if(!isMerc&&!is5070&&(typeof wkt!=='string'||!(/PROJECTION\s*\[\s*"Albers"/i.test(wkt))||!(/UNIT\s*\[\s*"Met(?:er|re)"\s*,\s*1(?:\.0+)?\s*\]/i.test(wkt))))throw Error('Supported service grid projection not established');const measure=isMerc?mercArea:area;
  const raw=site.geometry.type==='Polygon'?[site.geometry.coordinates]:site.geometry.coordinates;
  const polys=raw.map(p=>p.map(r=>{if(r.length<4||r[0][0]!==r.at(-1)[0]||r[0][1]!==r.at(-1)[1])throw Error('Unclosed boundary');const out=[];for(let i=0;i<r.length-1;i++){const a=r[i],b=r[i+1],n=Math.max(1,Math.ceil(Math.max(Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]))/.0002));if(n>10000||out.length+n>20000)throw Error('Boundary too complex');for(let j=0;j<n;j++){const t=j/n,v=project(wkt,[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);if(!Array.isArray(v)||!v.every(Number.isFinite))throw Error('Projection failed');out.push(v)}}return out}));
  const pts=polys.flat(1).flat(1);let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;for(const [x,y] of pts){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y)}
@@ -20,7 +20,7 @@ function grid(site,m,project){
  const width=Math.round((x1-x0)/step),height=Math.round((y1-y0)/step),total=polys.reduce((s,p)=>s+polyArea(p,null,measure),0);
  if(!Number.isFinite(total)||total<=0||total/acre>1000||width<=0||height<=0||width*height>maxCells)throw Error('Study exceeds raster limit (1,000 acres or 12,000 bounding cells); subdivide site');
  if(x0<e.xmin||x1>e.xmax||y0<e.ymin||y1>e.ymax)throw Error('Boundary extends outside native raster extent');
- return {polys,bbox:[x0,y0,x1,y1],width,height,total,wkt,isMerc,sr:isMerc?{wkid:3857}:{wkt},nativeOrigin:[e.xmin,e.ymax]}
+ return {polys,bbox:[x0,y0,x1,y1],width,height,total,wkt,isMerc,sr:isMerc?{wkid:3857}:is5070?{wkid:5070}:{wkt},nativeOrigin:[e.xmin,e.ymax]}
 }
 function summarize(id,g,decoded){
  const {width,height,bbox,polys,total}=g,measure=g.isMerc?mercArea:area;if(decoded.width!==width||decoded.height!==height||decoded.pixels?.length!==1||decoded.pixels[0].length!==width*height||decoded.mask&&decoded.mask.length!==width*height)throw Error('Unexpected raster dimensions or bands');
