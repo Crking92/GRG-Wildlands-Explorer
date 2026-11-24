@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.5.1
+## Alpha 0.6
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -12,6 +12,7 @@ A free, public, educational web map for exploring, measuring and understanding r
 - Address and place search via Photon / OpenStreetMap (explicit submit, temporary in-memory caching and per-browser request spacing; public demo service for reasonable usage only, no availability guarantee).
 - Experimental parcel point selection via City of Dripping Springs public GIS layer sourced from Hays CAD; preserves full Polygon/MultiPolygon and holes, requests only ID, county and dataset vintage fields, not owner information. Coverage, currency, terms and browser response still require verification. Manual boundaries remain available.
 - Separate existing-condition and proposed-habitat zone layers: draw named polygons, record notes, calculate approximate acres and square feet, switch views without changing the other layer, and export both as one GeoJSON FeatureCollection. Session-only; browser QA pending. No field verification, automatic suitability or legal accuracy implied.
+- On-demand habitat composition: query all eleven TPWD EMS regional polygon layers, clip to selected study area, dissolve same-class overlaps, check cross-class overlaps, report acres/percent of full boundary and explicit unmapped remainder, toggle class overlays and export CSV. Alpha limits: 1,000 study acres, 5,000 bounding-box acres, 500 candidate polygons, 300,000 vertices, 90-second request timeout. No partial percentages on errors. Source metadata inspected; live browser QA and numerical comparison against QGIS pending.
 - No API keys, accounts, paid services or server.
 
 ## Deploy free
@@ -34,7 +35,7 @@ External services may change, be unavailable or impose usage restrictions. Verif
 ## Next milestones
 1. Verify deployed page, imagery, map controls, mobile behavior, area calculations against known geometry, and source response formats. Record defects and fix before expansion.
 2. Test search with public landmarks and addresses, test parcel selection with multiple known Hays County sites, verify coverage, vintage, terms and source schema; avoid displaying owner names. Research authoritative statewide parcel service before expanding.
-3. Quantify TPWD habitat acres and percentages by spatial intersection or clearly documented raster zonal statistics, including unmapped area.
+3. Habitat polygon intersection implemented in 0.6. Test on small public parks and cross-ecoregion boundaries; compare against independently calculated QGIS intersections; test holes, multipart sites, incomplete data and request failure.
 4. Add land cover and tree canopy; soil types and attributes; elevation range, slope and aspect; hydrology, wetlands and flood zones.
 5. Add dated biodiversity occurrences and field survey measurements, keeping observations, modeled potential and recommendations distinct.
 6. Add baseline comparisons and reproducible ecological reports.
@@ -51,4 +52,4 @@ External services may change, be unavailable or impose usage restrictions. Verif
 
 ## Address-search patch (0.5.1)
 - Numbered street searches first query [Hays County GIS address points, January 2023](https://services6.arcgis.com/XnTA1N5QxtOFa9o8/ArcGIS/rest/services/CODS_Public_Map/FeatureServer/0) through the public City of Dripping Springs service, then try Photon with exact house-number and normalized street matching. Named places continue to use Photon. Results identify their source; no match is preferable to a misleading fuzzy address. Coverage outside Hays County and newer development remains limited. Submitted queries go to the providers; do not submit confidential locations.
-- Clear/reset and manual drawing now reset the parcel status text. User reports named place search, aerial imagery and boundary measurement working; exact-address patch still requires live testing. JavaScript syntax and four synthetic address matching checks passed; no private address tested remotely.
+- Clear/reset and manual drawing now reset the parcel status text. User reports named place search, aerial imagery and boundary measurement working; exact-address patch confirmed working by user on November 24, 2026. JavaScript syntax and four synthetic address matching checks passed; no private address tested remotely.
