@@ -18,7 +18,7 @@ function factors(p){
  if(share>100.01)allShares=false;
  const calc=k=>{
   let known=0,sum=0;for(const c of rows)if(c.share_percent!==null&&c[k]!==null){known+=c.share_percent;sum+=c.share_percent*c[k]}
-  if(known>100.01)return {known_component_share_percent:null,known_share_mean:null,full_unit_mean:null};
+  if(!rows.length||!rows.some(c=>c.share_percent!==null)||known>100.01)return {known_component_share_percent:null,known_share_mean:null,full_unit_mean:null};
   const mean=known>0?sum/known:null;
   return {known_component_share_percent:known,known_share_mean:mean,full_unit_mean:allShares&&Math.abs(share-100)<=.01&&Math.abs(known-100)<=.01?mean:null}
  };
