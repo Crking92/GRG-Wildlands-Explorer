@@ -3,7 +3,7 @@ Glass Root Garden · Land & Ecology
 
 A free, public, educational web map for exploring, measuring and understanding real landscapes. Start in Hays County, Texas. The design is inspired by exploration games; no achievements, points, leaderboards or artificial ecological scores.
 
-## Alpha 0.8.1
+## Alpha 0.8.2
 - Real aerial imagery and topographic basemaps from USGS.
 - TPWD ecological communities overlay with opacity adjustment and source legend.
 - Draw a study area, estimate acreage and perimeter using Turf, and export GeoJSON.
@@ -107,3 +107,8 @@ Implementation sequence: (1) common data/status/provenance schema; (2) local pro
 - Persistent Show USDA soils and Soil settings controls; enabling soils zooms to at least 15. Default opacity 80%, independent layer ordering and retry control.
 - Default source is the official [USDA NRCS cg_soils MUPolygon ArcGIS service](https://apps.geo.fpac.usda.gov/nrcs-geodata/rest/services/soils/cg_soils/MapServer/0), rendered by transparent map export requests. Original SDA WMS is explicitly selectable; no automatic source substitution. Snapshot tracks selected source and display status. Service-level metadata reports FY2026 (2026-05-08) but layer description still says FY2015; vintage conflict remains unresolved. No soil calculations or invented attributes.
 - Source metadata verified, but actual image responses and deployed browser rendering remain unverified. Blank tiles do not establish absence of mapped soils. Syntax and interface ID checks passed.
+
+## Compact workspace (0.8.2)
+- User confirmed both USDA soil provider options display correctly. No independent accuracy validation implied.
+- Retain right-side data panel and 55/45 default desktop split. Replace bulky panels with independently expandable category rows and separate synchronized TPWD/USDA map switches. Show property measurement and habitat composition summaries even when collapsed. Study controls collapse after successful boundary selection; primary analysis and export shortcuts remain visible. Clicking a habitat polygon opens its details.
+- Planned categories are clearly labeled as not calculated; no new datasets or ecological scores introduced. Existing export formats, source choices, property-scoped records and GIS tools retained. Browser/mobile visual and interaction QA pending; JavaScript syntax and element ID checks passed.
