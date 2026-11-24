@@ -14,6 +14,8 @@ async function retrieve(t,site,query,signal,progress=()=>{}){
  if(!objectField||!['ATTRIBUTE','WETLAND_TYPE'].every(k=>fieldNames.includes(k)))throw Error('Required NWI fields unavailable');
  const where={where:'1=1',geometry:bbox.join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects'};
  const idx=await query(source+'/query',{...where,returnIdsOnly:'true',f:'json'},signal);
+ // Some services may return null instead of an empty ID array. Never assume absence.
+ if(idx.objectIds===null&&!idx.exceededTransferLimit){const count=await query(source+'/query',{...where,returnCountOnly:'true',f:'json'},signal);if(count.count===0&&!count.exceededTransferLimit)return [];throw Error('Null feature index could not be verified as empty')}
  if(!Array.isArray(idx.objectIds)||idx.exceededTransferLimit)throw Error('Incomplete NWI polygon index');
  const ids=idx.objectIds.map(oid);if(ids.some(v=>v===null)||new Set(ids).size!==ids.length||ids.length>500)throw Error('Invalid or excessive NWI polygon IDs');
  const fs=[];let vertices=0;
