@@ -299,6 +299,9 @@
         },
         "biodiversity": {
           "$ref": "#/$defs/section"
+        },
+        "invasive_plants": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
