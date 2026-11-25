@@ -1,6 +1,6 @@
 /* Spatial evidence intersections, not suitability zones. Existing Turf 7.2. */
 (function(root){'use strict';
-const version='0.60',source_id='grg_spatial_evidence_v1',acre=4046.8564224;
+const version='0.60.2',source_id='grg_spatial_evidence_v1',acre=4046.8564224;
 const modes=Object.freeze([{key:'soil',label:'Habitat × soil units',source:'usda_ssurgo_rest'},{key:'wetlands',label:'Habitat × mapped wetlands / surface water',source:'usfws_nwi'},{key:'flood',label:'Habitat × designated SFHA',source:'fema_nfhl'}].map(Object.freeze));
 const limitations='Intersections of mapped source polygons only, not verified vegetation, reference ecosystem, wetland delineation, flood safety or restoration suitability. Unmapped areas are unknown. Different views overlap and must not be added. No raster or terrain quantities allocated to polygons.';
 function derive(input,t=root.turf){
@@ -14,7 +14,11 @@ function derive(input,t=root.turf){
  if(!valid(h)||!valid(d)){results.push(finish('unavailable','Source geometry or area association invalid.'));continue}
  try{
  const hr=h.rows.filter(x=>x.code&&x.name&&x.name!=='Unclassified source polygon'),other=m.key==='flood'?d.rows.filter(x=>x.sfha_flag==='T'):d.rows;
- if(!hr.length||!other.length){results.push(finish('no_data','No classified habitat or applicable mapped features returned; absence not established.'));continue}
+ if(m.key==='flood'&&!other.length){
+ const full=d.status==='estimated'&&d.complete===true&&d.sfha===0&&Number.isFinite(d.unknown)&&d.unknown<=tol&&Math.abs(d.covered-total)<=tol&&Number.isFinite(d.gap)&&d.gap>=0&&d.gap<=tol&&d.rows.length>0&&d.rows.every(x=>x.sfha_flag==='F'&&!['undetermined','unclassified'].includes(x.category));
+ results.push(full?finish('estimated','No designated SFHA intersection in the mapped property coverage (within area tolerance). This is not a finding of flood safety.',[],0):finish('no_data','No designated SFHA features returned, but flood-zone coverage or classification is incomplete or undetermined. Flood hazard remains unknown.'));continue}
+ if(!hr.length){results.push(finish('no_data','No classified habitat polygons returned; habitat intersections unknown.'));continue}
+ if(!other.length){results.push(finish('no_data','No applicable mapped features returned; absence not established.'));continue}
  if(hr.length*other.length>1200)throw Error('Pair limit exceeded (1,200); select a smaller area');
  if([...hr,...other].reduce((n,x)=>n+t.coordAll(x.geometry).length,0)>150000)throw Error('Geometry complexity limit exceeded; select a smaller area');
  const records=[],features=[];
@@ -26,7 +30,7 @@ function derive(input,t=root.turf){
  records.sort((a,b)=>b.area_acres-a.area_acres||a.habitat_name.localeCompare(b.habitat_name)||a.other_name.localeCompare(b.other_name));results.push(finish(covered<total-tol?'partial_coverage':'estimated','Known intersection footprint only. Remainder is not classified by this view.',records,covered));
  }catch(e){results.push(finish('unavailable',String(e.message||e)))}
  }
- const count=results.filter(x=>x.records.length).length;return {source_id,rule_version:version,property_id:input.property_id,study_area_acres:input.acres,status:count?(results.every(x=>x.status==='estimated')?'estimated':'partial_coverage'):results.some(x=>x.status==='unavailable')?'unavailable':results.some(x=>x.status==='no_data')?'no_data':'not_analyzed',method:'Turf 7.2 polygon intersection, clip to property, geodesic area, union and overlap check; full study area denominator.',evidence_kind:'mapped_spatial_intersection',verification_status:'not_field_verified',limitations,records:results};
+ const count=results.filter(x=>x.intersection_acres!==null).length;return {source_id,rule_version:version,property_id:input.property_id,study_area_acres:input.acres,status:count?(results.every(x=>x.status==='estimated')?'estimated':'partial_coverage'):results.some(x=>x.status==='unavailable')?'unavailable':results.some(x=>x.status==='no_data')?'no_data':'not_analyzed',method:'Turf 7.2 polygon intersection, clip to property, geodesic area, union and overlap check; full study area denominator.',evidence_kind:'mapped_spatial_intersection',verification_status:'not_field_verified',limitations,records:results};
 }
 root.GRGSpatialEvidence=Object.freeze({version,modes,derive});
 })(globalThis);
