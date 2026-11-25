@@ -216,6 +216,9 @@
         "et0": {
           "$ref": "#/$defs/section"
         },
+        "et_history": {
+          "$ref": "#/$defs/section"
+        },
         "terrain_solar": {
           "$ref": "#/$defs/section"
         }
