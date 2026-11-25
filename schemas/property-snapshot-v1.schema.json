@@ -233,6 +233,9 @@
         },
         "regional_climate": {
           "$ref": "#/$defs/section"
+        },
+        "climate_comparison": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
