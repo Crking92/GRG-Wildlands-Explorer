@@ -16,6 +16,20 @@ function category(zone,sub,flag){
  return 'other_mapped';
 }
 const colors={floodway:'#23659c',sfha:'#4faecf',moderate:'#d4a75c',minimal:'#8baf93',other_mapped:'#b8a2d8',undetermined:'#87929d',unclassified:'#87929d'};
+// Exact bounding-box rejection of entire remote polygon components; no simplification.
+const limits=Object.freeze({raw:2000000,retained:1000000});
+function selectComponents(f,bbox,budget){
+ const g=f.geometry,polys=g.type==='Polygon'?[g.coordinates]:g.coordinates;
+ if(!Array.isArray(polys)||!polys.length)throw Error('Invalid FEMA polygon components');
+ const keep=[];
+ for(const poly of polys){if(!Array.isArray(poly)||!poly.length)throw Error('Invalid FEMA polygon rings');let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,n=0;
+  for(const ring of poly){if(!Array.isArray(ring)||ring.length<4)throw Error('Invalid FEMA ring');for(const c of ring){if(!Array.isArray(c)||!Number.isFinite(c[0])||!Number.isFinite(c[1])||Math.abs(c[0])>180||Math.abs(c[1])>90)throw Error('Invalid FEMA coordinates');n++;budget.raw++;if(budget.raw>limits.raw)throw Error('FEMA raw geometry safety limit exceeded (2,000,000 vertices)');minX=Math.min(minX,c[0]);maxX=Math.max(maxX,c[0]);minY=Math.min(minY,c[1]);maxY=Math.max(maxY,c[1])}if(ring[0][0]!==ring.at(-1)[0]||ring[0][1]!==ring.at(-1)[1])throw Error('Unclosed FEMA ring')}
+  if(maxX<bbox[0]||minX>bbox[2]||maxY<bbox[1]||minY>bbox[3])continue;
+  budget.retained+=n;if(budget.retained>limits.retained)throw Error('FEMA local geometry safety limit exceeded (1,000,000 vertices)');keep.push(poly)
+ }
+ if(!keep.length)return null;
+ return {type:'Feature',id:f.id,properties:f.properties,geometry:keep.length===1?{type:'Polygon',coordinates:keep[0]}:{type:'MultiPolygon',coordinates:keep}};
+}
 async function retrieve(t,site,query,signal,progress=()=>{}){
  const bbox=t.bbox(site),area=t.area(site);if(!Number.isFinite(area)||area<=0||area/acre>1000||t.area(t.bboxPolygon(bbox))/acre>5000)throw Error('Study exceeds flood analysis limits; subdivide the area.');
  const m=await query(source,{f:'json'},signal);
@@ -28,15 +42,15 @@ async function retrieve(t,site,query,signal,progress=()=>{}){
  if(idx.objectIds===null&&!idx.exceededTransferLimit){const count=await query(source+'/query',{...where,returnCountOnly:'true',f:'json'},signal);if(count.count===0&&!count.exceededTransferLimit)return [];throw Error('Null feature index could not be verified as empty')}
  if(!Array.isArray(idx.objectIds)||idx.exceededTransferLimit)throw Error('Incomplete FEMA polygon index');
  const ids=idx.objectIds.map(oid);if(ids.some(v=>v===null)||new Set(ids).size!==ids.length||ids.length>500)throw Error('Invalid or excessive FEMA polygon IDs');
- const fs=[];let vertices=0;
+ const fs=[],budget={raw:0,retained:0};
  for(let i=0;i<ids.length;i+=30){
   if(signal.aborted)throw Error('Canceled');const batch=ids.slice(i,i+30);progress('Retrieving FEMA polygons '+(i+1)+'–'+Math.min(i+30,ids.length)+' of '+ids.length+'…');
   const r=await query(source+'/query',{objectIds:batch.join(','),outFields:[objectField,'FLD_ZONE','ZONE_SUBTY','SFHA_TF','FLD_AR_ID','DFIRM_ID'].join(','),returnGeometry:'true',outSR:'4326',f:'geojson'},signal);
   if(r.exceededTransferLimit||!Array.isArray(r.features)||r.features.length!==batch.length)throw Error('Incomplete FEMA polygon response');
   const seen=new Set();for(const f of r.features){const id=oid(attrs(f)[objectField.toUpperCase()]??f.id);if(!id||!batch.includes(id)||seen.has(id)||!['Polygon','MultiPolygon'].includes(f.geometry?.type))throw Error('Invalid FEMA geometry or polygon ID');seen.add(id);
-   const coords=t.coordAll(f);if(!coords.length||coords.some(c=>!Number.isFinite(c[0])||!Number.isFinite(c[1])||Math.abs(c[0])>180||Math.abs(c[1])>90))throw Error('Invalid FEMA coordinates');vertices+=coords.length;if(vertices>300000)throw Error('Flood polygon complexity limit exceeded');fs.push(f)}
+   const local=selectComponents(f,bbox,budget);if(local)fs.push(local)}
  }
- return fs;
+ Object.defineProperty(fs,'candidate_count',{value:ids.length});return fs;
 }
 function composition(t,site,fs){
  const total=t.area(site);if(!Number.isFinite(total)||total<=0)throw Error('Invalid study area');
@@ -49,7 +63,7 @@ function composition(t,site,fs){
  const covered=rows.length?t.area(union(t,rows.map(r=>r.geometry))):0,sum=rows.reduce((s,r)=>s+r.area,0),tol=Math.max(.1,total*.0001);if(!Number.isFinite(covered)||covered<0||sum-covered>tol||covered-total>tol||sum>total+tol)throw Error('Overlapping flood classifications or inconsistent area; results withheld');
  const gap=Math.max(0,total-covered),unknown=rows.filter(r=>['undetermined','unclassified'].includes(r.category)).reduce((s,r)=>s+r.area,0),sfha=rows.filter(r=>r.sfha_flag==='T').reduce((s,r)=>s+r.area,0);
  const complete=rows.length>0&&gap<=tol&&unknown<=tol;
- return {rows,total,covered:Math.min(total,covered),gap,unknown,sfha,complete,status:!rows.length?'no_data':complete?'estimated':'partial_coverage',candidate_count:fs.length,overlap:Math.max(0,sum-covered)};
+ return {rows,total,covered:Math.min(total,covered),gap,unknown,sfha,complete,status:!rows.length?'no_data':complete?'estimated':'partial_coverage',candidate_count:fs.candidate_count??fs.length,overlap:Math.max(0,sum-covered)};
 }
-root.GRGFlood=Object.freeze({server,source,retrieve,composition,category,colors});
+root.GRGFlood=Object.freeze({version:'0.60.1',server,source,retrieve,composition,category,colors});
 })(globalThis);
