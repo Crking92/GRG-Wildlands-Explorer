@@ -200,6 +200,9 @@
         },
         "climate": {
           "$ref": "#/$defs/section"
+        },
+        "rainfall_history": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
