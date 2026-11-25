@@ -227,6 +227,9 @@
         },
         "woody_shadow": {
           "$ref": "#/$defs/section"
+        },
+        "gridded_climate": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
