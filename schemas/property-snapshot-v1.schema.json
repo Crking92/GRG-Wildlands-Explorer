@@ -339,6 +339,9 @@
         "opportunity_screen": {
           "$ref": "#/$defs/section"
         },
+        "spatial_evidence": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
