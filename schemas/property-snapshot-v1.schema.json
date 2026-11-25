@@ -215,6 +215,9 @@
         },
         "et0": {
           "$ref": "#/$defs/section"
+        },
+        "terrain_solar": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
