@@ -224,6 +224,9 @@
         },
         "terrain_shadow": {
           "$ref": "#/$defs/section"
+        },
+        "woody_shadow": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
