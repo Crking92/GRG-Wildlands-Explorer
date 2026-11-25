@@ -203,6 +203,9 @@
         },
         "rainfall_history": {
           "$ref": "#/$defs/section"
+        },
+        "temperature_history": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
