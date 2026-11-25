@@ -209,6 +209,9 @@
         },
         "drought": {
           "$ref": "#/$defs/section"
+        },
+        "solar": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
