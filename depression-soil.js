@@ -1,0 +1,30 @@
+/* Mapped soil context for positive modeled geometric fill depth. */
+(function(root){'use strict';
+const version='0.61',source_id='grg_depression_soil_v1',acre=4046.8564224;
+const method='Original nearest-neighbor USGS DEM Priority-Flood depth cells intersected with study-clipped SSURGO soil polygons in EPSG:3857; existing spherical area weighting, exterior minus holes. Positive depth only, no arbitrary minimum depth.';
+const limitations='Model fill depth, not measured ponding, storage capacity, infiltration, groundwater or rain-garden suitability. Tiny positive depths may be artifacts. SSURGO map units are not measured soil properties or spatially located components. Requested grid spacing is not native DEM resolution. Missing soil coverage remains unknown; independent validation pending.';
+function compare(r,data,project,clip,area){
+ const d=r?.summary,dep=r?.depression,grid=d?.grid,base={source_id,rule_version:version,source_ids:['usgs_3dep_dem','usda_ssurgo_rest'],method,limitations,evidence_kind:'mapped_estimate_and_modeled_terrain_interpretation',verification_status:'not_field_verified',soil_retrieved_at:data?.retrieved??null,terrain_retrieved_at:d?.retrieved_at??null,requested_grid_m:d?.requested_grid_m??null,requested_interpolation:d?.requested_interpolation??null};
+ const missing=(detail,status='not_analyzed')=>({...base,status,detail,site_depression_area_acres:null,soil_intersection_acres:null,unmapped_depression_area_acres:null,minor_geometry_excess_acres:null,records:[]});
+ if(!r||!data)return missing('Retrieve mapped soils and run the original drainage model first.');
+ if(d?.requested_interpolation!=='RSP_NearestNeighbor'||dep?.summary?.status!=='estimated'||!dep.depth||!grid||!Array.isArray(data.rows))return missing('Complete original depression grid and soil polygons required.','unavailable');
+ const {width:w,height:h,bbox}=grid,n=w*h,step=d.requested_grid_m;if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||n>60000||!Array.isArray(bbox)||bbox.length!==4||!bbox.every(Number.isFinite)||!Number.isFinite(step)||step<=0||dep.depth.length!==n||r.weights?.length!==n||!Number.isFinite(d.study_area_acres)||d.study_area_acres<=0||!Number.isFinite(data.total)||Math.abs(data.total/acre-d.study_area_acres)>Math.max(.0001,d.study_area_acres*.001))throw Error('Invalid or mismatched terrain and soil grids');
+ let total=0,siteDep=0;for(let i=0;i<n;i++){const a=r.weights[i],v=dep.depth[i];if(!Number.isFinite(a)||a<0||!Number.isFinite(v)||v<0)throw Error('Invalid depth or property cell weight');total+=a;if(v>0)siteDep+=a}
+ const target=dep.summary.site_depression_area_acres;if(!Number.isFinite(target)||target<0||Math.abs(siteDep/acre-target)>Math.max(.00001,target*1e-7)||Math.abs(total/acre-d.study_area_acres)>Math.max(.00001,d.study_area_acres*1e-7))throw Error('Depression area reconciliation failed');
+ if(!siteDep)return {...base,status:'estimated',detail:'No positive modeled depression depth within the original grid. Not proof that ponding cannot occur.',site_depression_area_acres:0,soil_intersection_acres:0,unmapped_depression_area_acres:0,minor_geometry_excess_acres:0,records:[]};
+ const allocated=new Float64Array(n),records=[],keys=new Set();let work=0;
+ for(const u of data.rows){const geom=u.geometry?.geometry,key=String(u.key??'');if(!key||keys.has(key)||typeof u.name!=='string'||!u.name||!Number.isFinite(u.area)||u.area<=0||!['Polygon','MultiPolygon'].includes(geom?.type))throw Error('Invalid mapped soil record');keys.add(key);
+ const polys=(geom.type==='Polygon'?[geom.coordinates]:geom.coordinates).map(p=>p.map(ring=>ring.map(project)));let valid=0,sum=0,peak=null;
+ for(const p of polys){let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;for(const ring of p)for(const q of ring){if(!q||!Number.isFinite(q[0])||!Number.isFinite(q[1]))throw Error('Invalid projected soil coordinate')}for(const [x,y] of p[0]){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x);ymin=Math.min(ymin,y);ymax=Math.max(ymax,y)}
+ const c0=Math.max(0,Math.min(w,Math.floor((xmin-bbox[0])/step))),c1=Math.max(0,Math.min(w,Math.ceil((xmax-bbox[0])/step))),r0=Math.max(0,Math.min(h,Math.floor((bbox[3]-ymax)/step))),r1=Math.max(0,Math.min(h,Math.ceil((bbox[3]-ymin)/step)));work+=(c1-c0)*(r1-r0)*p.reduce((s,q)=>s+q.length,0);if(work>12000000)throw Error('Depression/soil intersection too complex; select smaller property or coarser grid');
+ for(let y=r0;y<r1;y++)for(let x=c0;x<c1;x++){const i=y*w+x,v=dep.depth[i];if(v<=0||r.weights[i]<=0)continue;const xx=bbox[0]+x*step,yy=bbox[3]-y*step,b=[xx,yy-step,xx+step,yy];const a=clip(p[0],b,area)-p.slice(1).reduce((s,q)=>s+clip(q,b,area),0);if(!Number.isFinite(a)||a<-.01)throw Error('Invalid soil cell intersection');if(a<=0)continue;allocated[i]+=a;valid+=a;sum+=a*v;peak=peak===null?v:Math.max(peak,v)}
+ }
+ if(valid>u.area+Math.max(.1,u.area*.001))throw Error('Depression area exceeds soil map unit');
+ if(valid>0)records.push({mukey:key,symbol:u.symbol??null,name:u.name,mapped_soil_area_acres:u.area/acre,depression_intersection_acres:valid/acre,mean_positive_fill_depth_m:sum/valid,maximum_fill_depth_m:peak});
+ }
+ let known=0,gap=0,excess=0;for(let i=0;i<n;i++){if(dep.depth[i]<=0)continue;const a=r.weights[i],b=allocated[i];if(b>a+Math.max(.05,a*.001))throw Error('Soil intersection exceeds property cell area');known+=b;gap+=Math.max(0,a-b);excess+=Math.max(0,b-a)}
+ const tol=Math.max(.1,siteDep*.001);if(excess>tol||Math.abs(known+gap-excess-siteDep)>Math.max(.001,siteDep*1e-8))throw Error('Depression soil area partition failed');
+ return {...base,status:known===0?'no_data':gap>tol?'partial_coverage':'estimated',detail:known===0?'No mapped soil intersects positive modeled depth; soil context unknown.':'Positive modeled fill depth intersected with mapped soil units.',site_depression_area_acres:siteDep/acre,soil_intersection_acres:known===0?null:known/acre,unmapped_depression_area_acres:gap/acre,minor_geometry_excess_acres:excess/acre,records:records.sort((a,b)=>b.depression_intersection_acres-a.depression_intersection_acres)};
+}
+root.GRGDepressionSoil=Object.freeze({version,compare});
+})(globalThis);

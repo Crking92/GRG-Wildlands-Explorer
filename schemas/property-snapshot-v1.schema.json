@@ -342,6 +342,9 @@
         "spatial_evidence": {
           "$ref": "#/$defs/section"
         },
+        "depression_soil": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
