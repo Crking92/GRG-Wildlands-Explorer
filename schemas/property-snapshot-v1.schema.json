@@ -221,6 +221,9 @@
         },
         "terrain_solar": {
           "$ref": "#/$defs/section"
+        },
+        "terrain_shadow": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
