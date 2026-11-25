@@ -302,6 +302,9 @@
         },
         "invasive_plants": {
           "$ref": "#/$defs/section"
+        },
+        "invasive_watchlist": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
