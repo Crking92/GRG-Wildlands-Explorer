@@ -336,6 +336,9 @@
         "restoration_objectives": {
           "$ref": "#/$defs/section"
         },
+        "opportunity_screen": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
