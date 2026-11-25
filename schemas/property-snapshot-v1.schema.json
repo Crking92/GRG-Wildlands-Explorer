@@ -206,6 +206,9 @@
         },
         "temperature_history": {
           "$ref": "#/$defs/section"
+        },
+        "drought": {
+          "$ref": "#/$defs/section"
         }
       },
       "required": [
