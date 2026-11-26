@@ -351,6 +351,9 @@
         "edit_community": {
           "$ref": "#/$defs/section"
         },
+        "edit_reviewed_excerpt": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
