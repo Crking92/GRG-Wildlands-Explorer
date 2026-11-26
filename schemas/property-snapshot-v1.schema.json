@@ -348,6 +348,9 @@
         "ecological_sites": {
           "$ref": "#/$defs/section"
         },
+        "edit_community": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
