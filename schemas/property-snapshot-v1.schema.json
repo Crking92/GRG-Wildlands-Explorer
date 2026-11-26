@@ -345,6 +345,9 @@
         "depression_soil": {
           "$ref": "#/$defs/section"
         },
+        "ecological_sites": {
+          "$ref": "#/$defs/section"
+        },
         "management": {
           "$ref": "#/$defs/section"
         }
